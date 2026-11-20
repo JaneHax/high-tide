@@ -105,6 +105,14 @@ export const PEDS = {
   alarmRadius: 9,
   alarmSeconds: 7,
   respawnDistance: 90,
+  // The odds a walker takes the road at a corner instead of turning it, and the quiet spell before the
+  // same man may do it again: without the cooldown one man can end up permanently in the traffic.
+  crossChance: 0.45,
+  crossCooldown: 11,
+  // How long a body lies before the block gets its walker back.
+  bodySeconds: 22,
+  // At or below a walking pace a car nudges nobody: only a car that is actually moving knocks a ped down.
+  runOverSpeed: 2.2,
 };
 
 export const COMBAT = {
