@@ -25,12 +25,12 @@ Chrome will not load ES modules from a `file://` page unless it was started with
 
 | key | what it does |
 | --- | --- |
-| W A S D | walk on foot, and steer while driving |
-| Shift | run |
+| W A S D | walk on foot; in a car, W is throttle, S is brake and reverse, A and D steer |
+| Shift | run on foot |
 | Space | jump on foot, handbrake in a car |
 | mouse | look around; the left button fires the pistol |
 | F | take the car you are standing next to, or get out of the one you are in |
-| E | bound in the input module, but no job in this build reads it (the same is true of Enter) |
+| E | bound in `input.js`, and the title card labels it "interact", but no job or system reads it; the same is true of Enter |
 | R | reload |
 | Esc | pause and resume |
 
@@ -52,8 +52,8 @@ types out; 22.18.0 is the release where that stopped needing a flag, while 22.6 
 
 | file | what it is |
 | --- | --- |
-| `main.js` | the renderer, the sky and the fixed-step loop; it creates every system below and owns `window.game` and the query string |
-| `city.js` | `buildPuertoSol(seed)`: the grid of blocks and roads, the buildings, the promenade, the piers, the sea, and `surfaceAt`, the one answer to how high the ground is |
+| `main.js` | the renderer, the sky and the fixed-step loop; it creates every system below, saves progress to `localStorage`, and owns `window.game` and the query string |
+| `city.js` | `buildPuertoSol(seed)`: the grid of blocks and roads, the buildings, the promenade, the two piers, the sea, the colliders, and `surfaceAt`, the one answer to how high the ground is |
 | `player.js` | Rico on foot: walking, running, jumping, and a body that slides along walls instead of through them |
 | `camera.js` | the short boom that follows Rico on foot and the long one that follows a car, each pulled in by the first wall in its way |
 | `vehicles.js` | the traffic driving the lane graph, and the car the player takes, drives and leaves |
@@ -61,7 +61,7 @@ types out; 22.18.0 is the release where that stopped needing a flag, while 22.6 
 | `combat.js` | the pistol, the player's health and ammo, the reload, and the rounds an officer drops |
 | `police.js` | heat and wanted stars, cruisers that drive the grid to the player, and the officers who get out and shoot |
 | `missions.js` | the five jobs in play order, the pulsing ring that marks each one, the payouts and the cash |
-| `hud.js` | the DOM overlay (job panel, cash, health, ammo, wanted stars, minimap, speedometer, the four cards) and every sound, all synthesised |
+| `hud.js` | the DOM overlay (job panel, cash, health, ammo, wanted stars, minimap, speedometer, and the title, paused, death and complete cards) and every sound, all synthesised |
 | `lifecycle.js` | death and respawn, kept out of the loop so the rule can run without a browser |
 | `input.js` | the one module that reads the keyboard and the mouse, and the only place a key press is consumed |
 | `config.js` | every tuning number and colour in the game, grouped by the system that owns it |
@@ -79,11 +79,11 @@ dossier's text.
 
 ## Screenshots
 
-`screenshots/` holds four renders of the game as it is, taken through `window.game` at
-`?manual=1&seed=1`:
+`screenshots/` holds four renders of the game as it is; the first by name, `1-cover.jpg`, is the
+cover:
 
 1. `1-cover.jpg` — Puerto Sol from over the water: the grid, the waterfront, the sea and the sunset in
    one frame
 2. `2-street.jpg` — Rico on the sidewalk with the crowd ahead of him and the traffic on the road
-3. `3-driving.jpg` — a stolen car on the waterfront road, the speedometer at 73 km/h
+3. `3-driving.jpg` — a car on the waterfront road, the speedometer at 73 km/h
 4. `4-chase.jpg` — five wanted stars, and the cruisers answering them with their light bars on
