@@ -441,7 +441,7 @@ Returns:
 
 ```
 {
-  update(): void,
+  update(dt = WORLD.step): void,
   wasDead: boolean        // live getter
 }
 ```

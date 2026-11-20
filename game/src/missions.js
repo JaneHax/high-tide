@@ -37,6 +37,7 @@ const COLUMN_SEGMENTS = 32;
 const RING_LIFT = 0.04;
 const PULSE_RATE = 2.6;
 const REACH_LIFT = 2;
+const HOLD = 'The police are on you. The handover can wait until they lose interest.';
 
 export function createMissions({ city, scene, player, vehicles, police, hud }) {
   const used = new Set();
@@ -130,6 +131,10 @@ export function createMissions({ city, scene, player, vehicles, police, hud }) {
     if (hud && typeof hud.toast === 'function') hud.toast(text);
   }
 
+  function withdraw(text) {
+    if (hud && typeof hud.withdraw === 'function') hud.withdraw(text);
+  }
+
   function announce() {
     const job = jobs[state.job];
     if (!job) return;
@@ -201,16 +206,19 @@ export function createMissions({ city, scene, player, vehicles, police, hud }) {
       ring.scale.setScalar(1 + pulse * 0.05);
     }
 
-    if (!state.active || !state.marker) return;
-
+    // The hold is only true while a job waits and the police are up: once the stars are gone the
+    // same line is withdrawn, from the toast and from #status alike, so nothing claims a chase that ended.
     if (police && police.stars > 0) {
-      if (!warned) {
+      if (!warned && state.active && state.marker) {
         warned = true;
-        toast('The police are on you. The handover can wait until they lose interest.');
+        toast(HOLD);
       }
-    } else {
+    } else if (warned) {
       warned = false;
+      withdraw(HOLD);
     }
+
+    if (!state.active || !state.marker) return;
 
     if (vehicles && vehicles.drivenCar) return;
 

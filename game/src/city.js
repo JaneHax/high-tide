@@ -327,6 +327,17 @@ export function buildPuertoSol(seed) {
   waterfrontParts.push(
     tintedBox(SHORE_X * 2, 0.45, CITY.promenadeWidth, shade(PALETTE.sidewalk, 1.08), 0, PROMENADE_Y - 0.225, (PROMENADE_Z - EDGE_Z) / 2),
   );
+
+  // The promenade is the first surface the player stands on, so it is laid as paving: a joint every
+  // four metres and a stone kerb along the road and along the seawall, welded into the waterfront mesh.
+  const promenadeZ = (PROMENADE_Z - EDGE_Z) / 2, jointColour = shade(PALETTE.sidewalk, 0.82);
+  const kerbColour = shade(PALETTE.wallCream, 0.94);
+  for (let x = -SHORE_X + 2; x < SHORE_X; x += 4) {
+    waterfrontParts.push(tintedBox(0.18, 0.03, CITY.promenadeWidth - 1.2, jointColour, x, PROMENADE_Y + 0.015, promenadeZ));
+  }
+  for (const z of [-EDGE_Z - 0.45, PROMENADE_Z + 0.45]) {
+    waterfrontParts.push(tintedBox(SHORE_X * 2, 0.09, 0.9, kerbColour, 0, PROMENADE_Y + 0.04, z));
+  }
   const wallRuns = [];
   let wallCursor = -SHORE_X;
   for (const px of PIER_X) {

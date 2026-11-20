@@ -114,7 +114,7 @@ export const COMBAT = {
 export const POLICE = {
   maxStars: 5,
   heatPerStar: 40,
-  heatCrime: 12,
+  heatCrime: 60,
   heatShot: 8,
   heatKill: 40,
   decayDelay: 6,

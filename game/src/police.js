@@ -431,7 +431,7 @@ export function createPolice({ city, scene, player, combat }) {
   function handleShot(report) {
     api.heat += POLICE.heatShot;
     quiet = 0;
-    if (report.hit) api.heat += POLICE.heatCrime;
+    if (report.hit) api.heat += POLICE.heatShot;
     if (report.killed) api.heat += POLICE.heatKill;
 
     const a = report.from, b = report.to, dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
@@ -456,7 +456,7 @@ export function createPolice({ city, scene, player, combat }) {
           down(struck);
           api.heat += POLICE.heatKill;
         } else {
-          api.heat += POLICE.heatCrime;
+          api.heat += POLICE.heatShot;
         }
       }
     }

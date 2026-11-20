@@ -133,6 +133,9 @@ const hudBridge = {
   toast(text) {
     if (hud) hud.toast(text);
   },
+  withdraw(text) {
+    if (hud) hud.withdraw(text);
+  },
 };
 const missions = createMissions({ city, scene, player, vehicles, police, hud: hudBridge });
 hud = createHud({ missions, combat, police, vehicles, player });

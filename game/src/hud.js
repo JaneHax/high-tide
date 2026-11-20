@@ -466,9 +466,13 @@ export function createHud({ missions, combat, police, vehicles, player }) {
 
   function toast(text) {
     toastLine.textContent = text;
-    toastLine.classList.add('show');
-    toastTimer = TOAST_SECONDS;
+    toastLine.classList.toggle('show', text !== '');
+    toastTimer = text === '' ? 0 : TOAST_SECONDS;
     if (live) live.textContent = text;
+  }
+
+  function withdraw(text) {
+    if (toastLine.textContent === text) toast('');
   }
 
   function setVisible(value) {
@@ -569,6 +573,7 @@ export function createHud({ missions, combat, police, vehicles, player }) {
     update,
     setVisible,
     toast,
+    withdraw,
     sound,
     unlockAudio,
     get mode() {
