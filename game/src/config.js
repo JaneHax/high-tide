@@ -30,6 +30,13 @@ export const CITY = {
   dockLength: 36,
   dockWidth: 9,
   seabed: -3.2,
+  // The waterfront's steps above the road. Every one of them stays under PLAYER.stepHeight so the
+  // walker climbs the kerb, the promenade and the pier without a jump.
+  kerbHeight: 0.2,
+  promenadeWidth: 14,
+  promenadeHeight: 0.35,
+  pierHeight: 0.75,
+  beachWidth: 22,
 };
 
 export const PLAYER = {
@@ -131,12 +138,18 @@ export const PALETTE = {
   fog: '#c98d6b',
   wallCream: '#e8d9bd',
   wallTan: '#c9a882',
+  wallStone: '#b4ada0',
   roof: '#6b5546',
   asphalt: '#2c2b33',
   roadLine: '#d9c98f',
+  roadLineYellow: '#d8b45a',
   sidewalk: '#9a9184',
   sea: '#2fa6a0',
   seaDeep: '#12565e',
+  grass: '#6d7a49',
+  sand: '#cfb98d',
+  wetSand: '#9c8a68',
+  hill: '#5a5245',
   sirenRed: '#e8402f',
   sirenBlue: '#3f7dff',
   wantedGold: '#f5c451',
