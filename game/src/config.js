@@ -125,6 +125,13 @@ export const COMBAT = {
   damage: 34,
   reviveHealth: 50,
   respawnSeconds: 4,
+  // The half-angle of the cone a body has to stand in to be shot, and how far off the line half a
+  // torso still counts as on it: the nearest man in the world in front of the camera is not a target.
+  cone: 0.05,
+  // How close the player has to stand to a box of rounds for it to be his, and how many boxes may wait
+  // on the street at once so a long fight does not litter it forever.
+  dropReach: 1.35,
+  maxDrops: 6,
 };
 
 export const POLICE = {
@@ -141,6 +148,18 @@ export const POLICE = {
   officerSpeed: 4.2,
   officerShootRange: 26,
   spawnDistance: 70,
+  // How fast a cruiser drives the grid and how hard it turns, and how close it parks before the crew
+  // gets out: a cruiser that stops at the junction and never opens a door is a parade float.
+  carSpeed: 17,
+  carTurnRate: 1.9,
+  dismountRange: 16,
+  officersPerCar: 2,
+  // A man on foot with a service pistol: tough enough to survive one round of the player's pistol,
+  // slow enough to be outrun, and close enough to be a threat without being an execution.
+  officerHealth: 60,
+  officerDamage: 7,
+  officerFireInterval: 0.75,
+  officerHoldRange: 8,
 };
 
 export const MISSIONS = {
