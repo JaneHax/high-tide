@@ -66,9 +66,13 @@ function nearestOf(list, value) {
   return best;
 }
 
+// A heat total within half a percent of a star of its boundary is that star: decay subtracts a
+// fraction of a star a step and must not blink the level off just under the line.
+const STAR_SLACK = 0.005;
+
 function starsFor(heat) {
   if (!(heat > 0)) return 0;
-  return Math.min(POLICE.maxStars, Math.floor(heat / POLICE.heatPerStar));
+  return Math.min(POLICE.maxStars, Math.floor(heat / POLICE.heatPerStar + STAR_SLACK));
 }
 
 export function createPolice({ city, scene, player, combat }) {

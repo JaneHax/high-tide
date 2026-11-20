@@ -4,7 +4,7 @@
 // The reload key is read here, through input.js: a second keydown listener could reload on a paused frame.
 // Heat for a run-over is charged here too, and only when the car is the one the player is driving.
 import * as THREE from 'three';
-import { CAMERA, PALETTE, POLICE, WORLD } from './config.js';
+import { CAMERA, PALETTE, POLICE, VEHICLES, WORLD } from './config.js';
 import { buildPuertoSol } from './city.js';
 import { createInput } from './input.js';
 import { createPlayer } from './player.js';
@@ -251,9 +251,11 @@ function step(dt = WORLD.step) {
         vehicles.exit();
         followCamera.snap(player);
       } else {
+        const target = vehicles.nearest(player.position, VEHICLES.enterReach);
+        const fresh = target !== null && !target.stolen;
         const car = vehicles.enter();
         if (car) {
-          police.addHeat(POLICE.heatCrime);
+          if (fresh) police.addHeat(POLICE.heatCrime);
           chaseCamera.reset(car);
         }
       }
