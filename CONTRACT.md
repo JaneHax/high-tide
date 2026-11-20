@@ -156,13 +156,17 @@ export function createChaseCamera({ camera, city })
 }
 ```
 
-- `update` adds `input.yawDelta` to `yaw`, `input.mouse.dy` to `pitch` (clamped, `CAMERA.pitch` at rest),
-  and writes `camera.position` / `camera.quaternion` to stand `CAMERA.distance` behind and `CAMERA.height`
-  above the player. It reads the `player` argument, not a captured one, so it can follow another body.
+- `update` adds `input.yawDelta` to `yaw`, adds `-input.mouse.dy * CAMERA.sensitivity` to `pitch`
+  (clamped to `CAMERA.pitchMin…pitchMax`), and writes `camera.position` / `camera.quaternion` to stand
+  `CAMERA.distance` behind and `CAMERA.height` above the player. It reads the `player` argument, not a
+  captured one, so it can follow another body.
 - `snap(player)` places it at once with no easing: spawn, respawn, teleport.
 - `setYaw(v)` sets the heading and is what lifecycle and missions call to face the player somewhere.
-- The follow camera does **not** collide: it is the player's own near view and the player's body is not
-  something it may pull through. Wall clearance belongs to the chase camera, which is given the city.
+- The follow camera **collides**. It casts its own boom with `firstHit` against the player's colliders
+  and pulls in to the first face it meets, keeping `CAMERA.minDistance` of gap, so standing against a
+  wall does not put the camera inside it. `createFollowCamera` takes no `city`, so it reads the boxes
+  from `player.colliders`, which `createPlayer` fills with `city.colliders`; a body without that field
+  is followed without collision.
 
 `createChaseCamera` returns:
 
