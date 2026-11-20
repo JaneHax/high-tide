@@ -1,53 +1,90 @@
-// Keyboard and pointer input. Held keys give a steering direction; one-shot presses (start or
-// restart, pause) are queued as bit flags and taken once by the loop, so a press between two
-// frames is never lost and never counted twice.
+// Keyboard and mouse with pointer lock. Held keys answer isDown; a press is reported by wasPressed
+// until the frame ends and never twice; the mouse reports its movement since the last frame, already
+// turned into the radians the camera should swing.
 
-export const ACTION_CONFIRM = 1;
-export const ACTION_PAUSE = 2;
+import { CAMERA } from './config.js';
 
-const LEFT = new Set(['ArrowLeft', 'KeyA']);
-const RIGHT = new Set(['ArrowRight', 'KeyD']);
-const CONFIRM = new Set(['Space', 'Enter']);
-const PAUSE = new Set(['KeyP', 'Escape']);
+const TRACKED = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ShiftLeft', 'ShiftRight', 'Space', 'KeyF', 'KeyE', 'KeyR', 'Escape', 'Enter']);
 
-export function createInput(target) {
-  let left = false;
-  let right = false;
-  let actions = 0;
+export function createInput(canvas) {
+  const down = new Set();
+  const pressed = new Set();
+  const mouse = { left: false, dx: 0, dy: 0 };
+  const gestures = [];
+  let gestured = false;
+
+  // Audio may only start from a real gesture, so the first pointer or key press is reported once.
+  function gesture() {
+    if (gestured) return;
+    gestured = true;
+    for (const fn of gestures) fn();
+  }
 
   window.addEventListener('keydown', (event) => {
-    if (LEFT.has(event.code)) left = true;
-    else if (RIGHT.has(event.code)) right = true;
-    else if (CONFIRM.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_CONFIRM;
-    } else if (PAUSE.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_PAUSE;
-    } else return;
-    event.preventDefault();
-  });
-  window.addEventListener('keyup', (event) => {
-    if (LEFT.has(event.code)) left = false;
-    else if (RIGHT.has(event.code)) right = false;
-  });
-  // A key released while the tab is hidden never sends keyup: let go of everything on blur.
-  window.addEventListener('blur', () => {
-    left = false;
-    right = false;
-  });
-  target.addEventListener('pointerdown', () => {
-    actions |= ACTION_CONFIRM;
+    gesture();
+    if (!TRACKED.has(event.code)) return;
+    // Escape is left to the browser: it is the browser that releases the pointer lock.
+    if (event.code !== 'Escape') event.preventDefault();
+    if (event.repeat) return;
+    down.add(event.code);
+    pressed.add(event.code);
   });
 
+  window.addEventListener('keyup', (event) => {
+    if (TRACKED.has(event.code)) down.delete(event.code);
+  });
+
+  // A key released while the tab is hidden never sends keyup, so everything is let go on blur.
+  window.addEventListener('blur', () => {
+    down.clear();
+    mouse.left = false;
+  });
+
+  document.addEventListener('pointerlockchange', () => {
+    if (document.pointerLockElement === canvas) return;
+    // Losing the pointer is the browser's own Escape, and the game must treat it as one.
+    mouse.left = false;
+    pressed.add('Escape');
+  });
+
+  canvas.addEventListener('pointerdown', (event) => {
+    gesture();
+    if (event.button === 0) mouse.left = true;
+  });
+  window.addEventListener('pointerup', (event) => {
+    if (event.button === 0) mouse.left = false;
+  });
+
+  window.addEventListener('mousemove', (event) => {
+    if (document.pointerLockElement !== canvas) return;
+    mouse.dx += event.movementX;
+    mouse.dy += event.movementY;
+  });
+
+  canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+
   return {
-    /** -1 for left, 1 for right, 0 for neither or both. */
-    direction() {
-      return (right ? 1 : 0) - (left ? 1 : 0);
+    isDown(code) {
+      return down.has(code);
     },
-    /** The one-shot presses since the last call, as ACTION_* flags. */
-    takeActions() {
-      const taken = actions;
-      actions = 0;
-      return taken;
+    wasPressed(code) {
+      return pressed.has(code);
+    },
+    mouse,
+    get yawDelta() {
+      return -mouse.dx * CAMERA.sensitivity;
+    },
+    requestLock() {
+      if (document.pointerLockElement !== canvas) canvas.requestPointerLock?.();
+    },
+    endFrame() {
+      pressed.clear();
+      mouse.dx = 0;
+      mouse.dy = 0;
+    },
+    onGesture(fn) {
+      gestures.push(fn);
+      if (gestured) fn();
     },
   };
 }
