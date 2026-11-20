@@ -345,7 +345,9 @@ Returns:
 - `update` spawns up to `POLICE.carCount` cars and their officers at `POLICE.spawnDistance` when the
   wanted level rises, drives them at the player, and shoots inside `POLICE.officerShootRange` for
   `combat.damage`. Heat decays `POLICE.decayRate` a second after `POLICE.decayDelay` unseen, and after
-  `POLICE.escapeSeconds` out of sight the level drops a star.
+  `POLICE.escapeSeconds` out of sight the search is called off outright: heat, stars and escape all go
+  to zero and the cars withdraw. It is not a step down of one star; a player who breaks sight has
+  escaped, and a level that only sagged would keep a cruiser on him for the rest of the session.
 - `addHeat(n)` is what everything else calls: `POLICE.heatCrime` for a crime, `POLICE.heatShot` a shot,
   `POLICE.heatKill` a kill.
 - `clear()` sets heat, stars, escape and shots to 0 and sends the cars away: death, respawn, mission end.
