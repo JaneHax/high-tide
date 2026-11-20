@@ -84,6 +84,17 @@ export const VEHICLES = {
   wheelRadius: 0.36,
   enterReach: 3.2,
   spawnClearance: 6,
+  // Each traffic car picks its own cruising pace between these fractions of its own top speed, so the
+  // street is not one convoy at one speed.
+  cruiseMin: 0.5,
+  cruiseMax: 0.92,
+  // How fast the direction of travel catches up with the nose: high grip means the car goes where it
+  // points, and the handbrake drops it low enough that the back end breaks out and the car slides.
+  grip: 9,
+  handbrakeGrip: 0.5,
+  // A traffic car that has wanted to move for this long without moving is put back on the network
+  // somewhere else rather than left blocking a junction.
+  stuckSeconds: 3,
 };
 
 export const PEDS = {
