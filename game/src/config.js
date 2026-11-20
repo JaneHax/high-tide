@@ -58,8 +58,19 @@ export const CAMERA = {
   distance: 5.2,
   height: 2.3,
   pitch: -0.16,
+  // How far the mouse may swing the view, and the shortest boom the wall test will allow before it
+  // parks the near plane inside Rico's head.
+  pitchMin: -0.95,
+  pitchMax: 0.3,
+  minDistance: 0.55,
+  followLag: 14,
   sensitivity: 0.0022,
   collisionPadding: 0.35,
+  // The car's boom is longer, higher and slower to agree with the heading, which is what makes a
+  // turn felt instead of teleported.
+  chaseDistance: 8.2,
+  chaseHeight: 2.8,
+  chaseLag: 3.2,
 };
 
 export const VEHICLES = {
