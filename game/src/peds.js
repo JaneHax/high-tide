@@ -159,15 +159,32 @@ export function createPeds({ city, scene, seed, player }) {
     ped.heading = ringHeading(block, ped.s, ped.dir);
   }
 
+  function crowded(x, z) {
+    for (const other of list) {
+      if (Math.hypot(other.position.x - x, other.position.z - z) < PEDS.radius * 3) return true;
+    }
+    return false;
+  }
+
   function recycle(ped) {
     const near = nearBlocks(), block = near.length ? rng.pick(near).block : ped.block;
-    for (let attempt = 0; attempt < 8; attempt++) {
+    for (let attempt = 0; attempt < 12; attempt++) {
       const s = rng.range(0, PERIMETER), point = ringPoint(block, s);
       if (Math.hypot(point.x - player.position.x, point.z - player.position.z) > PEDS.respawnDistance * 0.85) continue;
+      if (crowded(point.x, point.z)) continue;
       reset(ped, block, s);
       return;
     }
+    // Every draw that failed used to land on the same point, the ring corner nearest the player, so
+    // five walkers could start inside each other; step along the kerb to the first free stretch.
     const spot = nearestRing(block, player.position.x, player.position.z);
+    for (let step = 1; step < 48; step++) {
+      const s = spot.s + step * PEDS.radius * 3;
+      const point = ringPoint(block, s);
+      if (crowded(point.x, point.z)) continue;
+      reset(ped, block, s);
+      return;
+    }
     reset(ped, block, spot.s);
   }
 
