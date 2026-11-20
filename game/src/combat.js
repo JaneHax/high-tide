@@ -238,15 +238,6 @@ export function createCombat({ scene, player, camera, peds, city }) {
     }
   }
 
-  // input.js is the browser's keyboard and combat is handed no input object, so the reload key is bound
-  // here; main.js may also call reload() from the same press, which finds the magazine full and does
-  // nothing.
-  if (typeof window !== 'undefined') {
-    window.addEventListener('keydown', (event) => {
-      if (event.code === 'KeyR') reload();
-    });
-  }
-
   return {
     state,
     update,
