@@ -88,10 +88,11 @@ export function buildPuertoSol(seed)
   `group`; this list exists so peds, police and missions can pick a doorway without raycasting the world.
 - `colliders` holds one box per solid thing that blocks a walker, a wheel or a bullet: every building
   footprint, the seawall and the dock sheds. The ground is not a collider; `surfaceAt` is the ground.
-- `spawnPoints` holds exactly one entry with `kind: 'player'` (the default spawn) and `MISSIONS.count`
-  entries with `kind: 'job'`. `area` names the district the point stands in (`'Old Harbour'`,
-  `'Market Row'`, `'Salt Quay'`, `'Crane Yard'`, `'Vista Hill'` or the names the city session settles on);
-  missions and the HUD print it, nothing branches on it.
+- `spawnPoints` holds exactly one entry with `kind: 'player'` (the default spawn) and at least
+  `MISSIONS.count` entries with `kind: 'job'`, so each of the five jobs can take a point in the district
+  its own text names; the city session lays out more than five for that reason. `area` names the district
+  the point actually stands in — `'street'`, `'promenade'`, `'pier'` or `'park'` — and missions picks by
+  it, so a point whose `area` lies about where it stands puts a job marker in the wrong part of town.
 - `surfaceAt(x, z)` answers the height a walker or a wheel stands on there: `0` on streets, lots,
   sidewalks and parks, the sidewalk lip included; the dock deck height on a dock; `CITY.seabed` over open
   water. It is total and side-effect free: every x, z has an answer, and calling it never moves anything.
@@ -266,8 +267,9 @@ Returns:
 }
 ```
 
-- `PEDS.count` (44) peds walk the sidewalks and crossings, recycled from `city.spawnPoints` when they
-  stray past `PEDS.respawnDistance` from the player.
+- `PEDS.count` (44) peds walk the sidewalks and crossings. A ped who strays past `PEDS.respawnDistance`
+  from the player, or whose body has lain for `PEDS.bodySeconds`, is put back on a block ring near the
+  player. Peds do not read `city.spawnPoints`: those are for the player and the jobs.
 - `update` walks them, turns them to flee from `alarm` or from a car within `PEDS.alarmRadius` for
   `PEDS.alarmSeconds`, and knocks down anyone a car in `cars` or `policeCars` reaches.
 - `alarm(x, z)` sets everyone within `PEDS.alarmRadius` of the point to `'flee'` for `PEDS.alarmSeconds`:
