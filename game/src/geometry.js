@@ -1,96 +1,66 @@
-// The shared mesh helpers: welded boxes with per-vertex colour, and the one ray test the camera, the
-// bullets and the car collisions all use.
-import { BoxGeometry, BufferAttribute, BufferGeometry, Color } from 'three';
-
-const WHITE = new Color(1, 1, 1);
-
-export function paint(geometry, colour) {
-  const tint = new Color(colour), count = geometry.getAttribute('position').count;
-  const data = new Float32Array(count * 3);
-  for (let i = 0; i < count * 3; i += 3) {
-    data[i] = tint.r;
-    data[i + 1] = tint.g;
-    data[i + 2] = tint.b;
+// Welded tinted boxes and the one ray test the camera, bullets and cars share.
+import {BoxGeometry,BufferAttribute,BufferGeometry,Color} from 'three';
+const WHITE=new Color(1,1,1);
+export function paint(g,colour){
+  const t=new Color(colour),n=g.getAttribute('position').count,d=new Float32Array(n*3);
+  for(let i=0;i<n*3;i+=3){d[i]=t.r;d[i+1]=t.g;d[i+2]=t.b;}
+  g.setAttribute('color',new BufferAttribute(d,3));
+  return g;
+}
+export function tintedBox(w,h,d,colour,x,y,z){
+  const g=new BoxGeometry(w,h,d);
+  paint(g,colour);g.translate(x,y,z);
+  return g;
+}
+export function merge(list){
+  const parts=list.map(g=>g.index===null?g:g.toNonIndexed());
+  let count=0;
+  for(const p of parts)count+=p.getAttribute('position').count;
+  const pos=new Float32Array(count*3),nor=new Float32Array(count*3),col=new Float32Array(count*3);
+  let at=0;
+  for(const p of parts){
+    if(p.getAttribute('normal')===undefined)p.computeVertexNormals();
+    if(p.getAttribute('color')===undefined)paint(p,WHITE);
+    pos.set(p.getAttribute('position').array,at*3);
+    nor.set(p.getAttribute('normal').array,at*3);
+    col.set(p.getAttribute('color').array,at*3);
+    at+=p.getAttribute('position').count;
   }
-  geometry.setAttribute('color', new BufferAttribute(data, 3));
-  return geometry;
+  const m=new BufferGeometry();
+  m.setAttribute('position',new BufferAttribute(pos,3));
+  m.setAttribute('normal',new BufferAttribute(nor,3));
+  m.setAttribute('color',new BufferAttribute(col,3));
+  m.computeBoundingSphere();
+  for(const p of parts)if(!list.includes(p))p.dispose();
+  for(const g of list)g.dispose();
+  return m;
 }
-
-export function tintedBox(w, h, d, colour, x, y, z) {
-  const geometry = new BoxGeometry(w, h, d);
-  paint(geometry, colour);
-  geometry.translate(x, y, z);
-  return geometry;
-}
-
-export function merge(list) {
-  const parts = list.map((geometry) => (geometry.index === null ? geometry : geometry.toNonIndexed()));
-  let count = 0;
-  for (const part of parts) count += part.getAttribute('position').count;
-  const position = new Float32Array(count * 3), normal = new Float32Array(count * 3);
-  const colour = new Float32Array(count * 3);
-  let at = 0;
-  for (const part of parts) {
-    if (part.getAttribute('normal') === undefined) part.computeVertexNormals();
-    if (part.getAttribute('color') === undefined) paint(part, WHITE);
-    position.set(part.getAttribute('position').array, at * 3);
-    normal.set(part.getAttribute('normal').array, at * 3);
-    colour.set(part.getAttribute('color').array, at * 3);
-    at += part.getAttribute('position').count;
+// Slide a circle out of any collider it overlaps, the shortest way out.
+export function unstick(x,z,radius,top,colliders){
+  for(const c of colliders){
+    if(c.height<=top)continue;
+    const minX=c.minX-radius,maxX=c.maxX+radius,minZ=c.minZ-radius,maxZ=c.maxZ+radius;
+    if(x<=minX||x>=maxX||z<=minZ||z>=maxZ)continue;
+    const w=x-minX,e=maxX-x,s=z-minZ,n=maxZ-z,least=Math.min(w,e,s,n);
+    if(least===w)x=minX;else if(least===e)x=maxX;else if(least===s)z=minZ;else z=maxZ;
   }
-  const merged = new BufferGeometry();
-  merged.setAttribute('position', new BufferAttribute(position, 3));
-  merged.setAttribute('normal', new BufferAttribute(normal, 3));
-  merged.setAttribute('color', new BufferAttribute(colour, 3));
-  merged.computeBoundingSphere();
-  for (const part of parts) if (!list.includes(part)) part.dispose();
-  for (const geometry of list) geometry.dispose();
-  return merged;
+  return{x,z};
 }
-
-// Slides a circle out of any collider it already overlaps, the shortest way, and returns the spot.
-export function unstick(x, z, radius, top, colliders) {
-  for (const collider of colliders) {
-    if (collider.height <= top) continue;
-    const minX = collider.minX - radius, maxX = collider.maxX + radius, minZ = collider.minZ - radius;
-    const maxZ = collider.maxZ + radius;
-    if (x <= minX || x >= maxX || z <= minZ || z >= maxZ) continue;
-    const west = x - minX, east = maxX - x, south = z - minZ, north = maxZ - z;
-    const least = Math.min(west, east, south, north);
-    if (least === west) x = minX;
-    else if (least === east) x = maxX;
-    else if (least === south) z = minZ;
-    else z = maxZ;
-  }
-  return { x, z };
-}
-
-export function firstHit(from, to, colliders, padding = 0) {
-  const dx = to.x - from.x, dz = to.z - from.z;
-  let best = 1;
-  for (const collider of colliders) {
-    const minX = collider.minX - padding, maxX = collider.maxX + padding, minZ = collider.minZ - padding;
-    const maxZ = collider.maxZ + padding;
-    let enter = 0, exit = 1;
-    if (Math.abs(dx) < 1e-9) {
-      if (from.x < minX || from.x > maxX) continue;
-    } else {
-      let t1 = (minX - from.x) / dx, t2 = (maxX - from.x) / dx;
-      if (t1 > t2) [t1, t2] = [t2, t1];
-      enter = Math.max(enter, t1);
-      exit = Math.min(exit, t2);
-    }
-    if (Math.abs(dz) < 1e-9) {
-      if (from.z < minZ || from.z > maxZ) continue;
-    } else {
-      let t1 = (minZ - from.z) / dz, t2 = (maxZ - from.z) / dz;
-      if (t1 > t2) [t1, t2] = [t2, t1];
-      enter = Math.max(enter, t1);
-      exit = Math.min(exit, t2);
-    }
-    if (enter > exit || enter > best) continue;
-    if (collider.height <= from.y + (to.y - from.y) * enter) continue;
-    best = enter;
+// Fraction along from->to of the first collider met, or 1 for a clear line.
+// A collider whose top sits below the ray at the crossing is passed over.
+export function firstHit(from,to,colliders,padding=0){
+  const dx=to.x-from.x,dz=to.z-from.z;
+  let best=1;
+  for(const c of colliders){
+    const minX=c.minX-padding,maxX=c.maxX+padding,minZ=c.minZ-padding,maxZ=c.maxZ+padding;
+    let enter=0,exit=1;
+    if(Math.abs(dx)<1e-9){if(from.x<minX||from.x>maxX)continue;}
+    else{let t1=(minX-from.x)/dx,t2=(maxX-from.x)/dx;if(t1>t2)[t1,t2]=[t2,t1];enter=Math.max(enter,t1);exit=Math.min(exit,t2);}
+    if(Math.abs(dz)<1e-9){if(from.z<minZ||from.z>maxZ)continue;}
+    else{let t1=(minZ-from.z)/dz,t2=(maxZ-from.z)/dz;if(t1>t2)[t1,t2]=[t2,t1];enter=Math.max(enter,t1);exit=Math.min(exit,t2);}
+    if(enter>exit||enter>best)continue;
+    if(c.height<=from.y+(to.y-from.y)*enter)continue;
+    best=enter;
   }
   return best;
 }
