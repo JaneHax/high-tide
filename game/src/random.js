@@ -1,6 +1,4 @@
-// A seeded mulberry32 generator, the only source of randomness in the game: the same seed builds the
-// same Puerto Sol, so a screenshot and a bug are both repeatable, and no module may call Math.random.
-
+// A seeded mulberry32 generator, the game's only source of randomness.
 export function createRandom(seed) {
   let a = seed | 0;
   const next = () => {
@@ -11,19 +9,15 @@ export function createRandom(seed) {
   };
   return {
     next,
-    // A float in [min, max).
     range(min, max) {
       return min + next() * (max - min);
     },
-    // A whole number from min to max, both included.
     intRange(min, max) {
       return Math.floor(min + next() * (max - min + 1));
     },
-    // One element of a non-empty list.
     pick(list) {
       return list[Math.floor(next() * list.length)];
     },
-    // True with probability p.
     chance(p) {
       return next() < p;
     },

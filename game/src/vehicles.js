@@ -1,13 +1,13 @@
-// The traffic that fills Puerto Sol's streets and the car Rico can take. Every car is a few primitives
-// welded into a shell, four wheels and a lamp bar, and every wheel reads its height from city.surfaceAt,
-// so a car rides the pier deck and climbs the kerb instead of floating over either. The road graph is cut
-// out of city.roads.segments at every crossing, because two roads that cross must share the junction node
-// or a turning car teleports across the street.
-
+// The traffic that fills the streets and the car Rico can take. Every car is welded primitives with four
+// wheels, and every wheel reads its height from city.surfaceAt.
+//
+// The road graph cuts every segment at every crossing, because two roads that cross must share a node or
+// a turning car teleports; a car's position then comes from the lane piece it is on, never from an
+// integrated velocity.
 import { CylinderGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, Vector3 } from 'three';
 import { PALETTE, VEHICLES } from './config.js';
 import { createRandom } from './random.js';
-import { firstHit, merge, paint, tintedBox } from './geometry.js';
+import { firstHit, merge, paint, tintedBox, unstick } from './geometry.js';
 
 const BODY_MATERIAL = new MeshLambertMaterial({ vertexColors: true, flatShading: true });
 const LAMP_MATERIAL = new MeshBasicMaterial({ vertexColors: true });
@@ -15,60 +15,22 @@ const LAMP_MATERIAL = new MeshBasicMaterial({ vertexColors: true });
 const GLASS = '#232a36';
 const TRIM = '#191b22';
 
-// One entry per kind of car on the street. The speeds and the footprint are the car's own, so a van
-// really is slower and wider than a coupe, and the seeded stream picks which one is parked where.
 const TYPES = [
-  {
-    name: 'sedan',
-    length: 4.4,
-    width: 1.86,
-    height: 1.3,
-    maxSpeed: VEHICLES.maxSpeed * 0.8,
-    accel: VEHICLES.accel * 0.95,
-    turnRate: VEHICLES.turnRate,
-    colours: [PALETTE.wallCream, PALETTE.wallTan, PALETTE.wallStone, PALETTE.sea],
-  },
-  {
-    name: 'coupe',
-    length: 4.2,
-    width: 1.84,
-    height: 1.16,
-    maxSpeed: VEHICLES.maxSpeed,
-    accel: VEHICLES.accel * 1.1,
-    turnRate: VEHICLES.turnRate * 1.1,
-    colours: [PALETTE.sirenRed, PALETTE.wallCream, PALETTE.sea],
-  },
-  {
-    name: 'van',
-    length: 5.6,
-    width: 2.05,
-    height: 2.05,
-    maxSpeed: VEHICLES.maxSpeed * 0.62,
-    accel: VEHICLES.accel * 0.7,
-    turnRate: VEHICLES.turnRate * 0.8,
-    colours: [PALETTE.sea, PALETTE.wallTan, PALETTE.wallCream],
-  },
-  {
-    name: 'pickup',
-    length: 5.1,
-    width: 2,
-    height: 1.66,
-    maxSpeed: VEHICLES.maxSpeed * 0.74,
-    accel: VEHICLES.accel * 0.85,
-    turnRate: VEHICLES.turnRate * 0.9,
-    colours: [PALETTE.wallTan, PALETTE.wallStone, PALETTE.roof],
-  },
-  {
-    name: 'taxi',
-    length: 4.6,
-    width: 1.9,
-    height: 1.4,
-    maxSpeed: VEHICLES.maxSpeed * 0.78,
-    accel: VEHICLES.accel,
-    turnRate: VEHICLES.turnRate,
-    colours: [PALETTE.roadLineYellow],
-  },
-];
+  ['sedan', 4.4, 1.86, 1.3, 0.8, 0.95, 1, [PALETTE.wallCream, PALETTE.wallTan, PALETTE.wallStone, PALETTE.sea]],
+  ['coupe', 4.2, 1.84, 1.16, 1, 1.1, 1.1, [PALETTE.sirenRed, PALETTE.wallCream, PALETTE.sea]],
+  ['van', 5.6, 2.05, 2.05, 0.62, 0.7, 0.8, [PALETTE.sea, PALETTE.wallTan, PALETTE.wallCream]],
+  ['pickup', 5.1, 2, 1.66, 0.74, 0.85, 0.9, [PALETTE.wallTan, PALETTE.wallStone, PALETTE.roof]],
+  ['taxi', 4.6, 1.9, 1.4, 0.78, 1, 1, [PALETTE.roadLineYellow]],
+].map(([name, length, width, height, speed, accel, turn, colours]) => ({
+  name,
+  length,
+  width,
+  height,
+  maxSpeed: VEHICLES.maxSpeed * speed,
+  accel: VEHICLES.accel * accel,
+  turnRate: VEHICLES.turnRate * turn,
+  colours,
+}));
 
 function wrap(angle) {
   return Math.atan2(Math.sin(angle), Math.cos(angle));
@@ -83,16 +45,8 @@ function headingOf(dx, dz) {
   return Math.atan2(-dx, -dz);
 }
 
-// The road graph: every segment cut at every crossing with another, so the two full-length roads of the
-// grid and the short pieces of a broken one land on the same node. Each edge then yields two lanes,
-// each held half a lane width to the right of the centre line, which is what keeps oncoming traffic
-// apart without a physics step deciding it.
 function buildGraph(segments) {
-  const nodes = [];
-  const edges = [];
-  const lanes = [];
-  const lanesByNode = [];
-  const keys = new Map();
+  const nodes = [], edges = [], lanes = [], lanesByNode = [], keys = new Map();
 
   const nodeAt = (x, z) => {
     const key = `${Math.round(x * 50)}:${Math.round(z * 50)}`;
@@ -109,10 +63,7 @@ function buildGraph(segments) {
   const addLane = (from, to, x1, z1, x2, z2, offset) => {
     const length = Math.hypot(x2 - x1, z2 - z1);
     if (length < 1e-6) return;
-    const dirX = (x2 - x1) / length;
-    const dirZ = (z2 - z1) / length;
-    const rightX = -dirZ;
-    const rightZ = dirX;
+    const dirX = (x2 - x1) / length, dirZ = (z2 - z1) / length, rightX = -dirZ, rightZ = dirX;
     const lane = {
       from,
       to,
@@ -130,18 +81,12 @@ function buildGraph(segments) {
   };
 
   for (const segment of segments) {
-    const dx = segment.x2 - segment.x1;
-    const dz = segment.z2 - segment.z1;
-    const length = Math.hypot(dx, dz);
+    const dx = segment.x2 - segment.x1, dz = segment.z2 - segment.z1, length = Math.hypot(dx, dz);
     if (length < 1e-6) continue;
     const cuts = [0, 1];
     for (const other of segments) {
       if (other === segment) continue;
-      const ox = other.x2 - other.x1;
-      const oz = other.z2 - other.z1;
-      const denom = dx * oz - dz * ox;
-      // Parallel runs share no interior point; a short piece that ends on this road still cuts it,
-      // because its endpoint lands at u = 0 or 1 of its own span.
+      const ox = other.x2 - other.x1, oz = other.z2 - other.z1, denom = dx * oz - dz * ox;
       if (Math.abs(denom) < 1e-9) continue;
       const t = ((other.x1 - segment.x1) * oz - (other.z1 - segment.z1) * ox) / denom;
       const u = ((other.x1 - segment.x1) * dz - (other.z1 - segment.z1) * dx) / denom;
@@ -153,9 +98,7 @@ function buildGraph(segments) {
     let previous = null;
     for (const t of cuts) {
       if (previous !== null && t - previous.t < 1e-5) continue;
-      const x = segment.x1 + dx * t;
-      const z = segment.z1 + dz * t;
-      const id = nodeAt(x, z);
+      const x = segment.x1 + dx * t, z = segment.z1 + dz * t, id = nodeAt(x, z);
       if (previous !== null && previous.id !== id) {
         edges.push({ a: previous.id, b: id, length: Math.hypot(x - previous.x, z - previous.z) });
         addLane(previous.id, id, previous.x, previous.z, x, z, offset);
@@ -169,65 +112,50 @@ function buildGraph(segments) {
 }
 
 function shellGeometry(spec) {
-  const radius = VEHICLES.wheelRadius;
-  const bodyHeight = (spec.height - radius) * 0.52;
-  const cabinHeight = (spec.height - radius) * 0.48;
-  const cabinZ = spec.length * 0.03;
-  return merge([
+  const radius = VEHICLES.wheelRadius, bodyHeight = (spec.height - radius) * 0.52;
+  const cabinHeight = (spec.height - radius) * 0.48, cabinZ = spec.length * 0.03;
+  const parts = [
     tintedBox(spec.width, bodyHeight, spec.length, spec.colour, 0, radius + bodyHeight / 2, 0),
     tintedBox(spec.width * 0.86, cabinHeight, spec.length * 0.46, GLASS, 0, radius + bodyHeight + cabinHeight / 2, cabinZ),
     tintedBox(spec.width * 0.8, 0.1, spec.length * 0.4, spec.colour, 0, radius + bodyHeight + cabinHeight + 0.03, cabinZ),
-    tintedBox(spec.width * 1.02, 0.22, 0.3, TRIM, 0, radius + 0.12, -spec.length / 2 + 0.12),
-    tintedBox(spec.width * 1.02, 0.22, 0.3, TRIM, 0, radius + 0.12, spec.length / 2 - 0.12),
     tintedBox(spec.width * 0.9, 0.12, spec.length * 0.9, TRIM, 0, radius - 0.02, 0),
-  ]);
+  ];
+  for (const side of [-1, 1]) {
+    parts.push(tintedBox(spec.width * 1.02, 0.22, 0.3, TRIM, 0, radius + 0.12, side * (spec.length / 2 - 0.12)));
+  }
+  return merge(parts);
 }
 
 function lampGeometry(spec) {
-  const radius = VEHICLES.wheelRadius;
-  const y = radius + (spec.height - radius) * 0.42;
-  const x = spec.width / 2 - 0.3;
-  const front = -spec.length / 2 + 0.02;
-  const back = spec.length / 2 - 0.02;
-  return merge([
-    tintedBox(0.36, 0.16, 0.08, PALETTE.sun, -x, y, front),
-    tintedBox(0.36, 0.16, 0.08, PALETTE.sun, x, y, front),
-    tintedBox(0.34, 0.14, 0.08, PALETTE.sirenRed, -x, y, back),
-    tintedBox(0.34, 0.14, 0.08, PALETTE.sirenRed, x, y, back),
-  ]);
+  const radius = VEHICLES.wheelRadius, y = radius + (spec.height - radius) * 0.42, x = spec.width / 2 - 0.3;
+  const parts = [];
+  for (const side of [-1, 1]) {
+    parts.push(tintedBox(0.36, 0.16, 0.08, PALETTE.sun, side * x, y, -spec.length / 2 + 0.02));
+    parts.push(tintedBox(0.34, 0.14, 0.08, PALETTE.sirenRed, side * x, y, spec.length / 2 - 0.02));
+  }
+  return merge(parts);
 }
 
 function wheelGeometry() {
   const geometry = new CylinderGeometry(VEHICLES.wheelRadius, VEHICLES.wheelRadius, 0.26, 10);
   paint(geometry, '#14151a');
-  // The axle has to run across the car, so the cylinder is laid on its side once and every wheel mesh
-  // then spins about its own X.
   geometry.rotateZ(Math.PI / 2);
   return geometry;
 }
 
 function wheelSpots(spec) {
-  const x = spec.width / 2 - 0.12;
-  const z = spec.length / 2 - 1;
+  const x = spec.width / 2 - 0.12, z = spec.length / 2 - 1;
   return [[-x, -z], [x, -z], [-x, z], [x, z]];
 }
 
-// Every car in the game has the same wheels, so the cylinder is built once and the four meshes of
-// every car share it.
 let sharedWheel = null;
 
 export function createVehicles({ city, scene, seed, player }) {
-  const rng = createRandom(seed);
-  const graph = buildGraph(city.roads.segments);
-  const lanes = graph.lanes;
+  const rng = createRandom(seed), graph = buildGraph(city.roads.segments), lanes = graph.lanes;
   const lanesByNode = graph.lanesByNode;
 
-  const cars = [];
-  const meshes = new Map();
-  let driven = null;
-  let hitCallback = null;
-  let trafficView = [];
-  let viewDirty = true;
+  const cars = [], meshes = new Map();
+  let driven = null, hitCallback = null, trafficView = [], viewDirty = true;
 
   function meshesFor(spec) {
     const key = `${spec.name}:${spec.colour}`;
@@ -241,8 +169,7 @@ export function createVehicles({ city, scene, seed, player }) {
   }
 
   function addCar(spec) {
-    const parts = meshesFor(spec);
-    const body = new Group();
+    const parts = meshesFor(spec), body = new Group();
     body.rotation.order = 'YXZ';
 
     const shell = new Mesh(parts.shell, BODY_MATERIAL);
@@ -306,18 +233,12 @@ export function createVehicles({ city, scene, seed, player }) {
     car.position.z = lane.z1 + (lane.z2 - lane.z1) * t;
   }
 
-  // The car drives along the lane's centre line, so its position comes from the piece it is on and
-  // never from an integrated velocity: a lane is the only thing that knows where the road is.
   function syncPiece(car) {
-    const piece = car.piece;
-    const t = piece.length > 1e-6 ? car.along / piece.length : 0;
+    const piece = car.piece, t = piece.length > 1e-6 ? car.along / piece.length : 0;
     car.position.x = piece.x1 + (piece.x2 - piece.x1) * t + car.pushX;
     car.position.z = piece.z1 + (piece.z2 - piece.z1) * t + car.pushZ;
   }
 
-  // A junction is a gap between the end of one lane and the start of the next, up to seven metres on a
-  // turn. That gap is driven as its own short piece, which is why a turning car curves instead of
-  // jumping sideways to the new lane.
   function beginLane(car, lane, fromX, fromZ) {
     const gap = Math.hypot(lane.x1 - fromX, lane.z1 - fromZ);
     if (gap > 0.08) {
@@ -348,11 +269,9 @@ export function createVehicles({ city, scene, seed, player }) {
     const usable = options.filter((lane) => !(lane.to === came) || options.length === 1);
     const pool = usable.length > 0 ? usable : options;
     if (pool.length === 1) return pool[0];
-    // Going straight is the common case at a crossroads; the seeded stream decides the rest.
     let total = 0;
     const weights = pool.map((lane) => {
-      const straight = Math.abs(wrap(lane.heading - car.heading)) < 0.4;
-      const weight = straight ? 3 : 1;
+      const straight = Math.abs(wrap(lane.heading - car.heading)) < 0.4, weight = straight ? 3 : 1;
       total += weight;
       return weight;
     });
@@ -365,8 +284,7 @@ export function createVehicles({ city, scene, seed, player }) {
   }
 
   function advance(car, distance) {
-    let remaining = distance;
-    let guard = 0;
+    let remaining = distance, guard = 0;
     while (remaining > 1e-5 && guard++ < 8) {
       const left = car.piece.length - car.along;
       if (remaining < left) {
@@ -374,8 +292,7 @@ export function createVehicles({ city, scene, seed, player }) {
         break;
       }
       remaining -= left;
-      const endX = car.piece.x2;
-      const endZ = car.piece.z2;
+      const endX = car.piece.x2, endZ = car.piece.z2;
       car.along = car.piece.length;
       if (car.piece.lane) {
         const next = chooseLane(car, car.piece.lane.to);
@@ -393,16 +310,11 @@ export function createVehicles({ city, scene, seed, player }) {
   function nearestLane(x, z, heading) {
     let best = null;
     for (const lane of lanes) {
-      const dx = lane.x2 - lane.x1;
-      const dz = lane.z2 - lane.z1;
-      const length2 = dx * dx + dz * dz;
+      const dx = lane.x2 - lane.x1, dz = lane.z2 - lane.z1, length2 = dx * dx + dz * dz;
       if (length2 < 1e-9) continue;
       let t = ((x - lane.x1) * dx + (z - lane.z1) * dz) / length2;
       t = Math.max(0.02, Math.min(0.98, t));
-      const px = lane.x1 + dx * t;
-      const pz = lane.z1 + dz * t;
-      // Distance plus a nudge toward the lane the car already faces, so a car that is put back on the
-      // network does not immediately turn round.
+      const px = lane.x1 + dx * t, pz = lane.z1 + dz * t;
       const cost = Math.hypot(x - px, z - pz) + Math.abs(wrap(lane.heading - heading)) * 2;
       if (!best || cost < best.cost) best = { lane, t, cost };
     }
@@ -424,11 +336,8 @@ export function createVehicles({ city, scene, seed, player }) {
 
   function putOnNetwork(car, clearance) {
     for (let attempt = 0; attempt < 60; attempt++) {
-      const lane = lanes[rng.intRange(0, lanes.length - 1)];
-      const along = rng.range(1.5, Math.max(2, lane.length - 1.5));
-      const t = along / lane.length;
-      const x = lane.x1 + (lane.x2 - lane.x1) * t;
-      const z = lane.z1 + (lane.z2 - lane.z1) * t;
+      const lane = lanes[rng.intRange(0, lanes.length - 1)], along = rng.range(1.5, Math.max(2, lane.length - 1.5));
+      const t = along / lane.length, x = lane.x1 + (lane.x2 - lane.x1) * t, z = lane.z1 + (lane.z2 - lane.z1) * t;
       if (!clearAt(x, z, clearance, car)) continue;
       placeOnLane(car, lane, along);
       return true;
@@ -439,8 +348,7 @@ export function createVehicles({ city, scene, seed, player }) {
   for (let i = 0; i < VEHICLES.count * 2; i++) {
     const type = rng.pick(TYPES);
     const { colours, ...base } = type;
-    const spec = { ...base, colour: rng.pick(colours) };
-    const car = addCar(spec);
+    const spec = { ...base, colour: rng.pick(colours) }, car = addCar(spec);
     car.cruise = spec.maxSpeed * rng.range(VEHICLES.cruiseMin, VEHICLES.cruiseMax);
     car.limit = car.cruise;
     car.speed = car.cruise * 0.7;
@@ -449,15 +357,12 @@ export function createVehicles({ city, scene, seed, player }) {
   }
 
   function carAhead(car) {
-    const fx = -Math.sin(car.heading);
-    const fz = -Math.cos(car.heading);
-    const rx = Math.cos(car.heading);
+    const fx = -Math.sin(car.heading), fz = -Math.cos(car.heading), rx = Math.cos(car.heading);
     const rz = -Math.sin(car.heading);
     let best = null;
     for (const other of cars) {
       if (other === car || !other.spec) continue;
-      const dx = other.position.x - car.position.x;
-      const dz = other.position.z - car.position.z;
+      const dx = other.position.x - car.position.x, dz = other.position.z - car.position.z;
       const ahead = dx * fx + dz * fz;
       if (ahead <= 0) continue;
       const lateral = Math.abs(dx * rx + dz * rz);
@@ -501,9 +406,6 @@ export function createVehicles({ city, scene, seed, player }) {
     car.pushZ *= decay;
     if (car.cooldown > 0) car.cooldown -= dt;
 
-    // A car that wants to move and cannot is the one that blocks a junction for good, so it is lifted
-    // off the network and put back somewhere else instead of being left there as a wall. A car queued
-    // behind another in its own lane is not stuck — that queue clears when the car in front goes.
     const queued = ahead && car.lane && ahead.lane === car.lane;
     if (car.speed < 0.5 && !queued) car.still += dt;
     else car.still = 0;
@@ -514,8 +416,7 @@ export function createVehicles({ city, scene, seed, player }) {
   }
 
   function drivePlayerCar(car, dt, input) {
-    const spec = car.spec;
-    const throttle = input ? input.isDown('KeyW') : false;
+    const spec = car.spec, throttle = input ? input.isDown('KeyW') : false;
     const brake = input ? input.isDown('KeyS') : false;
     const steer = (input && input.isDown('KeyA') ? 1 : 0) - (input && input.isDown('KeyD') ? 1 : 0);
     const handbrake = input ? input.isDown('Space') : false;
@@ -523,8 +424,6 @@ export function createVehicles({ city, scene, seed, player }) {
     car.limit = spec.maxSpeed;
 
     if (handbrake) {
-      // The handbrake cuts the drive as well as the speed: a car you can hold flat through a corner
-      // with Space down is a car with no weight to it.
       car.speed = approach(car.speed, 0, VEHICLES.brake * 0.35 * dt);
     } else if (throttle) {
       car.speed = Math.min(spec.maxSpeed, car.speed + spec.accel * dt);
@@ -535,21 +434,15 @@ export function createVehicles({ city, scene, seed, player }) {
       car.speed = approach(car.speed, 0, VEHICLES.friction * dt);
     }
 
-    // The wheels bite less as the car goes faster, which is what keeps a top-speed turn from reading
-    // as a spin on the spot; below walking pace there is almost no steering at all.
     const bite = Math.min(1, Math.abs(car.speed) / 3);
     const grip = 1 - 0.55 * Math.min(1, Math.abs(car.speed) / spec.maxSpeed);
     const rate = spec.turnRate * grip * bite * (handbrake ? 1.7 : 1) * Math.sign(car.speed || 1);
     car.heading = wrap(car.heading + steer * rate * dt);
 
-    // The car travels where the back end sends it, not where the nose points; with the handbrake down
-    // the travel direction stops keeping up with the heading and the car slides.
     const follow = (handbrake ? VEHICLES.handbrakeGrip : VEHICLES.grip) * dt;
     car.travel += Math.max(-follow, Math.min(follow, wrap(car.heading - car.travel)));
 
-    const dirX = -Math.sin(car.travel);
-    const dirZ = -Math.cos(car.travel);
-    const stepX = dirX * car.speed * dt;
+    const dirX = -Math.sin(car.travel), dirZ = -Math.cos(car.travel), stepX = dirX * car.speed * dt;
     const stepZ = dirZ * car.speed * dt;
     if (stepX !== 0 || stepZ !== 0) {
       from.set(car.position.x, car.position.y + 0.7, car.position.z);
@@ -567,34 +460,24 @@ export function createVehicles({ city, scene, seed, player }) {
     if (car.cooldown > 0) car.cooldown -= dt;
   }
 
-  // Separating-axis test on two footprints in the XZ plane. Every axis is returned oriented from a to
-  // b, because the shortest way out is not always the way the car came in: a car shoved up the back of
-  // another is pushed along its own travel, not sideways out of the lane.
   function boxOverlap(a, b) {
-    const sa = Math.sin(a.heading);
-    const ca = Math.cos(a.heading);
-    const sb = Math.sin(b.heading);
-    const cb = Math.cos(b.heading);
+    const sa = Math.sin(a.heading), ca = Math.cos(a.heading), sb = Math.sin(b.heading), cb = Math.cos(b.heading);
     const axes = [
       [-sa, -ca],
       [ca, -sa],
       [-sb, -cb],
       [cb, -sb],
     ];
-    const dx = b.position.x - a.position.x;
-    const dz = b.position.z - a.position.z;
+    const dx = b.position.x - a.position.x, dz = b.position.z - a.position.z;
     let smallest = null;
     const out = [];
     for (const axis of axes) {
-      const ax = axis[0];
-      const az = axis[1];
+      const ax = axis[0], az = axis[1];
       const ra = (a.spec.length / 2) * Math.abs(-sa * ax + -ca * az) + (a.spec.width / 2) * Math.abs(ca * ax + -sa * az);
       const rb = (b.spec.length / 2) * Math.abs(-sb * ax + -cb * az) + (b.spec.width / 2) * Math.abs(cb * ax + -sb * az);
-      const distance = dx * ax + dz * az;
-      const depth = ra + rb - Math.abs(distance);
+      const distance = dx * ax + dz * az, depth = ra + rb - Math.abs(distance);
       if (depth <= 0) return null;
-      const side = distance < 0 ? -1 : 1;
-      const hit = { depth, nx: ax * side, nz: az * side };
+      const side = distance < 0 ? -1 : 1, hit = { depth, nx: ax * side, nz: az * side };
       out.push(hit);
       if (!smallest || depth < smallest.depth) smallest = hit;
     }
@@ -604,8 +487,7 @@ export function createVehicles({ city, scene, seed, player }) {
   function pushAxis(hit, vx, vz) {
     const speed = Math.hypot(vx, vz);
     if (speed < 0.5) return hit.smallest;
-    let best = hit.smallest;
-    let bestDot = -Infinity;
+    let best = hit.smallest, bestDot = -Infinity;
     for (const axis of hit.axes) {
       const dot = (axis.nx * vx + axis.nz * vz) / speed;
       if (dot > bestDot) {
@@ -632,27 +514,19 @@ export function createVehicles({ city, scene, seed, player }) {
       for (let j = i + 1; j < cars.length; j++) {
         const b = cars[j];
         if (!b.spec) continue;
-        const reach = (a.spec.length + b.spec.length) * 0.5;
-        const dx = b.position.x - a.position.x;
+        const reach = (a.spec.length + b.spec.length) * 0.5, dx = b.position.x - a.position.x;
         const dz = b.position.z - a.position.z;
         if (dx * dx + dz * dz > reach * reach) continue;
         const hit = boxOverlap(a, b);
         if (!hit) continue;
-        // The direction of the impact decides which face gives: a rear-end shunt sends the car in
-        // front away down the road, a T-bone sends it sideways, and a car that is only resting against
-        // another takes the shortest way out.
         const vx = -Math.sin(a.heading) * a.speed + Math.sin(b.heading) * b.speed;
-        const vz = -Math.cos(a.heading) * a.speed + Math.cos(b.heading) * b.speed;
-        const axis = pushAxis(hit, vx, vz);
+        const vz = -Math.cos(a.heading) * a.speed + Math.cos(b.heading) * b.speed, axis = pushAxis(hit, vx, vz);
         const closing = Math.max(0, vx * axis.nx + vz * axis.nz);
         if (a === driven || b === driven) {
-          const winner = a === driven ? a : b;
-          const other = a === driven ? b : a;
-          const side = a === driven ? 1 : -1;
+          const winner = a === driven ? a : b, other = a === driven ? b : a, side = a === driven ? 1 : -1;
           shove(other, axis.nx * side * (axis.depth + 0.02), axis.nz * side * (axis.depth + 0.02));
           winner.speed *= 0.55;
           other.speed *= 0.35;
-          // One crash per contact, not one per step of grinding along the same car.
           if (hitCallback && other.cooldown <= 0) {
             other.cooldown = 0.3;
             hitCallback(other, closing);
@@ -668,44 +542,15 @@ export function createVehicles({ city, scene, seed, player }) {
   }
 
   function keepOffWalls(car) {
-    const radius = car.spec.width * 0.5;
-    const top = car.position.y + 0.5;
-    for (const collider of city.colliders) {
-      if (collider.height <= top) continue;
-      const x = car.position.x;
-      const z = car.position.z;
-      const minX = collider.minX - radius;
-      const maxX = collider.maxX + radius;
-      const minZ = collider.minZ - radius;
-      const maxZ = collider.maxZ + radius;
-      if (x <= minX || x >= maxX || z <= minZ || z >= maxZ) continue;
-      const west = x - minX;
-      const east = maxX - x;
-      const south = z - minZ;
-      const north = maxZ - z;
-      const least = Math.min(west, east, south, north);
-      if (least === west) car.position.x = minX;
-      else if (least === east) car.position.x = maxX;
-      else if (least === south) car.position.z = minZ;
-      else car.position.z = maxZ;
-      car.speed = 0;
-    }
+    const spot = unstick(car.position.x, car.position.z, car.spec.width * 0.5, car.position.y + 0.5, city.colliders);
+    if (spot.x !== car.position.x || spot.z !== car.position.z) car.speed = 0;
+    car.position.x = spot.x;
+    car.position.z = spot.z;
   }
 
-  // The chassis sits on the average of its four wheel heights, so a car crossing a kerb rises over it
-  // instead of sinking one corner, and the pitch and the roll come from the same four numbers.
   function sitOnGround(car, dt) {
-    const spec = car.spec;
-    const s = Math.sin(car.heading);
-    const c = Math.cos(car.heading);
-    const fx = -s;
-    const fz = -c;
-    const rx = c;
-    const rz = -s;
-    const half = spec.length * 0.36;
-    const side = spec.width * 0.42;
-    const x = car.position.x;
-    const z = car.position.z;
+    const spec = car.spec, s = Math.sin(car.heading), c = Math.cos(car.heading), fx = -s, fz = -c, rx = c, rz = -s;
+    const half = spec.length * 0.36, side = spec.width * 0.42, x = car.position.x, z = car.position.z;
     const fl = city.surfaceAt(x + fx * half - rx * side, z + fz * half - rz * side);
     const fr = city.surfaceAt(x + fx * half + rx * side, z + fz * half + rz * side);
     const rl = city.surfaceAt(x - fx * half - rx * side, z - fz * half - rz * side);
@@ -721,8 +566,7 @@ export function createVehicles({ city, scene, seed, player }) {
     for (const wheel of car.wheels) wheel.rotation.x -= spin;
   }
 
-  const from = new Vector3();
-  const to = new Vector3();
+  const from = new Vector3(), to = new Vector3();
 
   function blockedAt(x, z) {
     const ground = city.surfaceAt(x, z);
@@ -734,8 +578,7 @@ export function createVehicles({ city, scene, seed, player }) {
   }
 
   function nearest(point, reach) {
-    let best = null;
-    let bestDistance = reach;
+    let best = null, bestDistance = reach;
     for (const car of cars) {
       const distance = Math.hypot(car.position.x - point.x, car.position.z - point.z);
       if (distance <= bestDistance) {
@@ -773,15 +616,11 @@ export function createVehicles({ city, scene, seed, player }) {
     car.travel = car.heading;
     driven = null;
     viewDirty = true;
-    // The car goes back on the network before Rico is put down, so "beside it" is beside where it
-    // ends up rather than beside where he stopped it.
     car.ai = true;
     snapToLane(car);
     sitOnGround(car, 0);
 
-    const s = Math.sin(car.heading);
-    const c = Math.cos(car.heading);
-    const side = car.spec.width / 2 + 0.9;
+    const s = Math.sin(car.heading), c = Math.cos(car.heading), side = car.spec.width / 2 + 0.9;
     const behind = car.spec.length / 2 + 0.9;
     const spots = [
       [car.position.x + c * side, car.position.z - s * side],
@@ -804,8 +643,6 @@ export function createVehicles({ city, scene, seed, player }) {
 
   function update(dt, input, onFoot) {
     if (!(dt > 0)) return;
-    // The traffic keeps driving whether Rico is on foot or holding a wheel: freezing the street the
-    // moment he takes a car would make the city a diorama. onFoot only says no car is his this step.
     if (driven) drivePlayerCar(driven, dt, input);
     for (const car of cars) {
       if (car === driven || !car.ai) continue;

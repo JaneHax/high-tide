@@ -1,7 +1,4 @@
-// Every tuning number and colour in one place, grouped by the system that owns it, so a later session
-// changes the game by editing a number here and never by hunting a magic value inside a module.
-// Distances are metres, angles radians, times seconds; CONTRACT.md names the module that reads each group.
-
+// Every tuning number and colour in one place, grouped by the system that owns it.
 export const WORLD = {
   boundary: 460,
   gravity: 22,
@@ -30,8 +27,6 @@ export const CITY = {
   dockLength: 36,
   dockWidth: 9,
   seabed: -3.2,
-  // The waterfront's steps above the road. Every one of them stays under PLAYER.stepHeight so the
-  // walker climbs the kerb, the promenade and the pier without a jump.
   kerbHeight: 0.2,
   promenadeWidth: 14,
   promenadeHeight: 0.35,
@@ -58,16 +53,12 @@ export const CAMERA = {
   distance: 5.2,
   height: 2.3,
   pitch: -0.16,
-  // How far the mouse may swing the view, and the shortest boom the wall test will allow before it
-  // parks the near plane inside Rico's head.
   pitchMin: -0.95,
   pitchMax: 0.3,
   minDistance: 0.55,
   followLag: 14,
   sensitivity: 0.0022,
   collisionPadding: 0.35,
-  // The car's boom is longer, higher and slower to agree with the heading, which is what makes a
-  // turn felt instead of teleported.
   chaseDistance: 8.2,
   chaseHeight: 2.8,
   chaseLag: 3.2,
@@ -84,16 +75,10 @@ export const VEHICLES = {
   wheelRadius: 0.36,
   enterReach: 3.2,
   spawnClearance: 6,
-  // Each traffic car picks its own cruising pace between these fractions of its own top speed, so the
-  // street is not one convoy at one speed.
   cruiseMin: 0.5,
   cruiseMax: 0.92,
-  // How fast the direction of travel catches up with the nose: high grip means the car goes where it
-  // points, and the handbrake drops it low enough that the back end breaks out and the car slides.
   grip: 9,
   handbrakeGrip: 0.5,
-  // A traffic car that has wanted to move for this long without moving is put back on the network
-  // somewhere else rather than left blocking a junction.
   stuckSeconds: 3,
 };
 
@@ -105,13 +90,9 @@ export const PEDS = {
   alarmRadius: 9,
   alarmSeconds: 7,
   respawnDistance: 90,
-  // The odds a walker takes the road at a corner instead of turning it, and the quiet spell before the
-  // same man may do it again: without the cooldown one man can end up permanently in the traffic.
   crossChance: 0.45,
   crossCooldown: 11,
-  // How long a body lies before the block gets its walker back.
   bodySeconds: 22,
-  // At or below a walking pace a car nudges nobody: only a car that is actually moving knocks a ped down.
   runOverSpeed: 2.2,
 };
 
@@ -125,11 +106,7 @@ export const COMBAT = {
   damage: 34,
   reviveHealth: 50,
   respawnSeconds: 4,
-  // The half-angle of the cone a body has to stand in to be shot, and how far off the line half a
-  // torso still counts as on it: the nearest man in the world in front of the camera is not a target.
   cone: 0.05,
-  // How close the player has to stand to a box of rounds for it to be his, and how many boxes may wait
-  // on the street at once so a long fight does not litter it forever.
   dropReach: 1.35,
   maxDrops: 6,
 };
@@ -148,14 +125,10 @@ export const POLICE = {
   officerSpeed: 4.2,
   officerShootRange: 26,
   spawnDistance: 70,
-  // How fast a cruiser drives the grid and how hard it turns, and how close it parks before the crew
-  // gets out: a cruiser that stops at the junction and never opens a door is a parade float.
   carSpeed: 17,
   carTurnRate: 1.9,
   dismountRange: 16,
   officersPerCar: 2,
-  // A man on foot with a service pistol: tough enough to survive one round of the player's pistol,
-  // slow enough to be outrun, and close enough to be a threat without being an execution.
   officerHealth: 60,
   officerDamage: 7,
   officerFireInterval: 0.75,
@@ -178,8 +151,6 @@ export const HUD = {
   minimapRange: 120,
 };
 
-// A dusk harbour: warm sky over turquoise water, cream and tan walls against dark asphalt, and one
-// saturated colour per signal so a siren, a star and a health bar never read as decoration.
 export const PALETTE = {
   skyWarm: '#f2a35e',
   skyCool: '#3d4a7a',

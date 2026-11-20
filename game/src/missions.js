@@ -1,16 +1,8 @@
-// The five jobs of HIGH TIDE: one small crime told in five steps, each a ring on the ground in the
-// district its own line names. The rule this file exists to keep is that the marker and the sentence
-// agree — a job whose text says the pier takes its point from a pier — because a player who reads the
-// line and walks where it points must arrive where the game meant, and a marker in the wrong quarter
-// of town is a lie the player notices at once. The ring's height comes from city.surfaceAt, so it lies
-// on the planks of a pier instead of floating over the water or sinking into it, and a finished job
-// pays once and is never replayed.
-
+// The five jobs: one small crime in five steps, each a ring in the district its own line names, so a
+// player who walks where the text points arrives where the game meant. A finished job pays once.
 import { CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, RingGeometry } from 'three';
 import { MISSIONS, PALETTE } from './config.js';
 
-// Each beat names a district in its own text and the district it must be placed in. The names are the
-// city's own vocabulary of areas, not a second vocabulary invented here.
 const STORY = [
   {
     title: 'The Marina Errand',
@@ -44,16 +36,11 @@ const RING_SEGMENTS = 44;
 const COLUMN_SEGMENTS = 32;
 const RING_LIFT = 0.04;
 const PULSE_RATE = 2.6;
-// A ring is a place you stand in, so the arrival test allows a couple of metres of height: a marker
-// on a pier deck is above the beach under it, and a player walking the sand below has not arrived.
 const REACH_LIFT = 2;
 
 export function createMissions({ city, scene, player, vehicles, police, hud }) {
   const used = new Set();
 
-  // A job point is taken only from a district its text names. The city lays out more than five job
-  // points for exactly this reason; the last branch is a guard for a city that ever breaks that
-  // promise, because a job with no marker at all is worse than one in the next block.
   function takePoint(areas) {
     for (const area of areas) {
       for (let i = 0; i < city.spawnPoints.length; i++) {
@@ -73,17 +60,8 @@ export function createMissions({ city, scene, player, vehicles, police, hud }) {
   }
 
   const jobs = STORY.map((beat, id) => {
-    const point = takePoint(beat.areas) || {
-      x: player.position.x,
-      z: player.position.z,
-      area: 'street',
-    };
-    const objective = {
-      x: point.x,
-      y: city.surfaceAt(point.x, point.z),
-      z: point.z,
-      area: point.area,
-    };
+    const point = takePoint(beat.areas) || { x: player.position.x, z: player.position.z, area: 'street' };
+    const objective = { x: point.x, y: city.surfaceAt(point.x, point.z), z: point.z, area: point.area };
     return {
       id,
       title: beat.title,
@@ -109,8 +87,7 @@ export function createMissions({ city, scene, player, vehicles, police, hud }) {
   };
 
   const paidFlags = jobs.map(() => false);
-  let clock = 0;
-  let warned = false;
+  let clock = 0, warned = false;
 
   const marker = new Group();
   const ringMaterial = new MeshBasicMaterial({
@@ -183,7 +160,6 @@ export function createMissions({ city, scene, player, vehicles, police, hud }) {
 
   function start() {
     if (state.active || state.done) return;
-    // A job that has been paid is finished: walking back to its ring must not run it a second time.
     if (paidFlags[state.job]) return;
     state.active = true;
     state.objective = 0;
@@ -205,15 +181,11 @@ export function createMissions({ city, scene, player, vehicles, police, hud }) {
     }
     state.job += 1;
     state.paid = paidFlags[state.job];
-    // The next job begins where the last one ended. The story is one chain, and a player who has to
-    // find a way to start the job he was just handed would be looking for a menu this game does not
-    // have; start() still refuses a job that has already been paid.
     start();
   }
 
   function completeObjective() {
     if (!state.active || !state.marker) return;
-    // A job is one step of the story with one marker on it, so arriving is the whole job.
     state.objective += 1;
     payJob(state.job);
     next();
@@ -240,12 +212,9 @@ export function createMissions({ city, scene, player, vehicles, police, hud }) {
       warned = false;
     }
 
-    // Standing in the ring means standing: a car rolling across it is not the player arriving, and
-    // the driver would otherwise clear a pier objective he never walked onto.
     if (vehicles && vehicles.drivenCar) return;
 
-    const dx = player.position.x - state.marker.x;
-    const dz = player.position.z - state.marker.z;
+    const dx = player.position.x - state.marker.x, dz = player.position.z - state.marker.z;
     if (Math.hypot(dx, dz) > MISSIONS.reachRadius) return;
     if (Math.abs(player.position.y - state.marker.y) > REACH_LIFT) return;
     completeObjective();

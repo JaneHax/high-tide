@@ -1,8 +1,8 @@
-// HIGH TIDE's frame: the renderer, the sun and the sky, the build order the modules need, and the
-// fixed-step loop that decides whether the other nine behave like a game. Every listener in the game
-// is added here, because input.js is the one module allowed to read the keyboard and the mouse;
-// everything else is told what happened by a callback registered below.
-
+// HIGH TIDE's frame: the renderer, the sky, the build order and the fixed-step loop. Every listener is
+// added here, because input.js is the one module allowed to read the keyboard and the mouse.
+//
+// The reload key is read here, through input.js: a second keydown listener could reload on a paused frame.
+// Heat for a run-over is charged here too, and only when the car is the one the player is driving.
 import * as THREE from 'three';
 import { CAMERA, PALETTE, POLICE, WORLD } from './config.js';
 import { buildPuertoSol } from './city.js';
@@ -34,15 +34,8 @@ const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(PALETTE.fog, WORLD.fog.near, WORLD.fog.far);
 scene.background = new THREE.Color(PALETTE.fog);
 
-const camera = new THREE.PerspectiveCamera(
-  CAMERA.fov,
-  window.innerWidth / window.innerHeight,
-  CAMERA.near,
-  CAMERA.far,
-);
+const camera = new THREE.PerspectiveCamera(CAMERA.fov, window.innerWidth / window.innerHeight, CAMERA.near, CAMERA.far);
 
-// The sun's direction is a unit vector toward it, so the light, the sky's disc and the shadow camera
-// all agree about where the last of the light is coming from.
 const sunDirection = new THREE.Vector3(
   Math.cos(WORLD.sunElevation) * Math.sin(WORLD.sunAzimuth),
   Math.sin(WORLD.sunElevation),
@@ -54,27 +47,23 @@ sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.bias = -0.0005;
 sun.shadow.normalBias = 0.06;
-sun.shadow.camera.left = -WORLD.shadowExtent;
-sun.shadow.camera.right = WORLD.shadowExtent;
-sun.shadow.camera.top = WORLD.shadowExtent;
-sun.shadow.camera.bottom = -WORLD.shadowExtent;
-sun.shadow.camera.near = 1;
-sun.shadow.camera.far = WORLD.sunDistance + WORLD.shadowExtent * 2;
-sun.shadow.camera.updateProjectionMatrix();
-scene.add(sun);
-scene.add(sun.target);
+const shadowCamera = sun.shadow.camera;
+shadowCamera.left = -WORLD.shadowExtent;
+shadowCamera.right = WORLD.shadowExtent;
+shadowCamera.top = WORLD.shadowExtent;
+shadowCamera.bottom = -WORLD.shadowExtent;
+shadowCamera.near = 1;
+shadowCamera.far = WORLD.sunDistance + WORLD.shadowExtent * 2;
+shadowCamera.updateProjectionMatrix();
+scene.add(sun, sun.target);
 
-// The shadow camera's own axes, and one texel of its map, so the map can be moved in whole texels.
 const lightRight = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), sunDirection).normalize();
 const lightUp = new THREE.Vector3().crossVectors(sunDirection, lightRight).normalize();
 const TEXEL = (WORLD.shadowExtent * 2) / 2048;
 const focus = new THREE.Vector3();
 
 function aimSun(at) {
-  // Rounded to whole texels: a shadow camera that follows the player continuously slides every shadow
-  // edge a fraction of a texel per frame, which reads as crawling along the street as he walks.
-  const right = Math.round(at.dot(lightRight) / TEXEL) * TEXEL;
-  const up = Math.round(at.dot(lightUp) / TEXEL) * TEXEL;
+  const right = Math.round(at.dot(lightRight) / TEXEL) * TEXEL, up = Math.round(at.dot(lightUp) / TEXEL) * TEXEL;
   focus
     .copy(lightRight)
     .multiplyScalar(right)
@@ -85,8 +74,6 @@ function aimSun(at) {
   sun.target.updateMatrixWorld();
 }
 
-// A dusk dome: warm at the horizon, cold overhead, with the sun's disc and its glow burned into the
-// same gradient so the light in the sky is the light casting the shadows.
 const sky = new THREE.Mesh(
   new THREE.SphereGeometry(WORLD.fog.far + 60, 32, 20),
   new THREE.ShaderMaterial({
@@ -100,29 +87,27 @@ const sky = new THREE.Mesh(
       sunDirection: { value: sunDirection.clone() },
     },
     vertexShader: `
-      varying vec3 vDir;
-      void main() {
-        vDir = normalize(position);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
+varying vec3 vDir;
+void main() {
+  vDir = normalize(position);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`,
     fragmentShader: `
-      uniform vec3 skyWarm;
-      uniform vec3 skyCool;
-      uniform vec3 sunColour;
-      uniform vec3 sunDirection;
-      varying vec3 vDir;
-      void main() {
-        vec3 d = normalize(vDir);
-        float height = clamp(d.y, -1.0, 1.0);
-        vec3 colour = mix(skyWarm, skyCool, smoothstep(0.0, 0.6, height));
-        colour = mix(colour, skyWarm * 0.55, smoothstep(0.0, -0.3, height));
-        float sun = max(0.0, dot(d, normalize(sunDirection)));
-        float disc = smoothstep(0.9976, 0.9993, sun);
-        float glow = pow(sun, 60.0) * 0.6 + pow(sun, 8.0) * 0.14;
-        gl_FragColor = vec4(colour + sunColour * (disc * 1.4 + glow), 1.0);
-      }
-    `,
+uniform vec3 skyWarm;
+uniform vec3 skyCool;
+uniform vec3 sunColour;
+uniform vec3 sunDirection;
+varying vec3 vDir;
+void main() {
+  vec3 d = normalize(vDir);
+  float height = clamp(d.y, -1.0, 1.0);
+  vec3 colour = mix(skyWarm, skyCool, smoothstep(0.0, 0.6, height));
+  colour = mix(colour, skyWarm * 0.55, smoothstep(0.0, -0.3, height));
+  float sun = max(0.0, dot(d, normalize(sunDirection)));
+  float disc = smoothstep(0.9976, 0.9993, sun);
+  float glow = pow(sun, 60.0) * 0.6 + pow(sun, 8.0) * 0.14;
+  gl_FragColor = vec4(colour + sunColour * (disc * 1.4 + glow), 1.0);
+}`,
   }),
 );
 sky.frustumCulled = false;
@@ -143,8 +128,6 @@ const peds = createPeds({ city, scene, seed, player });
 const combat = createCombat({ scene, player, camera, peds, city });
 const police = createPolice({ city, scene, player, combat });
 
-// missions needs a hud to toast through and the hud needs the missions it reads, so missions is given
-// a stand-in that forwards to the real HUD once it exists: neither factory is built on a null.
 let hud = null;
 const hudBridge = {
   toast(text) {
@@ -159,18 +142,14 @@ const input = createInput(canvas);
 
 input.onGesture(() => hud.unlockAudio());
 
-// A crash is heard whenever the player's car is in one — vehicles only reports contacts it is part of.
 vehicles.onHit(() => hud.sound('crash'));
 
-// Traffic knocks people over on its own all day; only the car under the player's hands is his crime.
 peds.onRunOver((ped, car) => {
   if (car && car === vehicles.drivenCar) police.addHeat(POLICE.heatKill);
 });
 
-// The officer's rounds are the player's resupply, and the spot he fell on is where the box lies.
 police.onDrop((x, z) => combat.dropAmmo(x, z));
 
-// The pistol is heard here rather than in the police module, which only counts what it costs.
 combat.onFire(() => hud.sound('shot'));
 
 const SAVE_KEY = `high-tide.save.v1.${seed}`;
@@ -178,17 +157,10 @@ let savedCash = 0;
 
 function saveProgress() {
   const state = missions.state;
-  const payload = {
-    cash: state.cash,
-    job: state.job,
-    objective: state.objective,
-    done: state.done,
-    paid: state.paid,
-  };
+  const payload = { cash: state.cash, job: state.job, objective: state.objective, done: state.done, paid: state.paid };
   try {
     window.localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
   } catch {
-    // A window with storage denied still plays; it just cannot remember the run.
   }
 }
 
@@ -218,13 +190,9 @@ if (saved) {
 }
 
 const finished = Boolean(saved && saved.done === true);
-// A run that has already paid the fifth job opens on the card that says so, and a harness that drives
-// the loop by hand opens on the game itself: there is nobody there to click a title card away.
 hud.mode = finished ? 'complete' : manual ? 'play' : 'title';
 if (hud.mode === 'play') missions.start();
 
-// What a frozen player's input looks like: the dead slice still runs the city, the traffic and the
-// sea, but nobody in it is driving, walking or shooting.
 const FROZEN = {
   isDown: () => false,
   wasPressed: () => false,
@@ -241,7 +209,6 @@ let settle = 0;
 function begin() {
   if (hud.mode !== 'title') return;
   hud.mode = 'play';
-  // The click that begins the game is also a press of the trigger, and it must not be the first shot.
   triggerHeld = true;
   input.requestLock();
   missions.start();
@@ -251,8 +218,6 @@ function pause() {
   if (hud.mode !== 'play' && hud.mode !== 'dead') return;
   saveProgress();
   hud.mode = 'paused';
-  // The Escape that paused the game also released the pointer, and input reports that release as a
-  // second Escape; without a settle the game would resume on the press that paused it.
   settle = 0.3;
 }
 
@@ -265,7 +230,6 @@ function resume() {
 
 function step(dt = WORLD.step) {
   if (!(dt > 0)) return;
-  // In a hand-driven run the harness's step is the frame, so the HUD is given the same clock.
   if (manual) frameDt = dt;
   if (hud.mode === 'paused' || hud.mode === 'title' || hud.mode === 'complete') {
     if (manual) input.endFrame();
@@ -275,12 +239,9 @@ function step(dt = WORLD.step) {
   lifecycle.update(dt);
   hud.mode = lifecycle.wasDead ? 'dead' : 'play';
 
-  const live = lifecycle.wasDead ? FROZEN : input;
-  const health = combat.state.health;
-  const rounds = police.shots;
+  const live = lifecycle.wasDead ? FROZEN : input, health = combat.state.health, rounds = police.shots;
 
   if (live === input) {
-    // A press counts once, and a paused game never reaches here, so neither key can fire twice.
     if (input.wasPressed('KeyR')) combat.reload();
     if (input.wasPressed('KeyF')) {
       if (vehicles.drivenCar) {
@@ -289,8 +250,6 @@ function step(dt = WORLD.step) {
       } else {
         const car = vehicles.enter();
         if (car) {
-          // Taking a stranger's car is a crime, and only this file can charge it: police is given no
-          // handle on vehicles.
           police.addHeat(POLICE.heatCrime);
           chaseCamera.reset(car);
         }
@@ -312,12 +271,9 @@ function step(dt = WORLD.step) {
   city.tick(dt);
   aimSun(player.position);
 
-  // The HUD is told what it cannot see for itself.
   if (combat.state.health < health) hud.sound('hit');
   if (police.shots > rounds) hud.sound('shot');
 
-  // A job is paid inside missions.next, so the run is written the step the cash moves rather than at
-  // the next pause: a closed tab after a payout must not cost the player the job.
   if (missions.state.cash > savedCash) {
     savedCash = missions.state.cash;
     saveProgress();
@@ -331,8 +287,6 @@ function step(dt = WORLD.step) {
 }
 
 function render() {
-  // The HUD is a view of the frame, not of each slice: one update per paint, so a harness that drives
-  // step() and render() by hand sees the same panels a player does.
   hud.update(frameDt, { input, camera, renderer });
   aimSun(player.position);
   sky.position.copy(camera.position);
@@ -354,8 +308,6 @@ function frame(now) {
     else if (hud.mode === 'paused') resume();
   }
 
-  // A frame longer than a quarter second is a stall, not time the game owes: replaying it would try
-  // to simulate a minute of city in one step after a tab has been asleep.
   if (dt <= 0.25) {
     accumulator += dt;
     let slices = 0;
@@ -374,8 +326,6 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-// The first click after a pause only takes the pointer back: resume() sets the trigger guard, so the
-// press that resumes is never a shot.
 window.addEventListener('pointerdown', (event) => {
   if (event.button !== 0) return;
   if (hud.mode === 'title') begin();
@@ -383,7 +333,6 @@ window.addEventListener('pointerdown', (event) => {
 });
 
 document.addEventListener('visibilitychange', () => {
-  // A game that runs unseen kills a player who never saw the frame.
   if (document.hidden) pause();
 });
 

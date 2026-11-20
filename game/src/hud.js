@@ -1,11 +1,6 @@
-// The face of HIGH TIDE: the panels a player reads without being told to, the four cards the game
-// needs no menus module for, and every sound in the game, synthesised here because the build has no
-// assets and makes no request. Two rules hold the file together. The panel follows the frame, not the
-// fixed step — main calls update once per paint, so the minimap is drawn once per paint and the job
-// line changes when a frame changes. And every word a player must not miss goes into the page's
-// #status paragraph as well as onto the screen, because a styled toast is invisible to a screen
-// reader and that paragraph is the one thing the page announces.
-
+// The face of the game: the panels, the four cards, and every sound, synthesised because the build has
+// no assets and makes no request. The panel follows the frame, not the fixed step, because main calls
+// update once per paint.
 import { Vector3 } from 'three';
 import { CITY, COMBAT, HUD, PALETTE } from './config.js';
 
@@ -21,9 +16,6 @@ const ENGINE_GAIN = 0.05;
 const ENGINE_DRIVE = 0.12;
 const SIREN_GAIN = 0.05;
 
-// The streets the minimap draws come from the same grid constants the city is built from. The HUD is
-// handed no city, so this is the only honest source for them: a road drawn from a copied magic number
-// would drift the first time CITY changed.
 const PITCH = CITY.blockSize + CITY.roadWidth;
 const HALF_X = (CITY.gridX * PITCH) / 2;
 const HALF_Z = (CITY.gridZ * PITCH) / 2;
@@ -54,137 +46,52 @@ function injectStyle() {
   const style = document.createElement('style');
   style.id = 'ht-style';
   style.textContent = `
-    #ht-hud {
-      position: fixed; inset: 0; pointer-events: none; user-select: none;
-      font-family: ${HUD.font}; color: ${PALETTE.text};
-      -webkit-font-smoothing: antialiased;
-    }
-    #ht-hud * { box-sizing: border-box; }
-    .ht-panel {
-      background: ${PALETTE.panel};
-      border: 1px solid rgba(242, 163, 94, 0.28);
-      border-radius: 10px;
-      padding: 10px 12px;
-      box-shadow: 0 6px 22px rgba(0, 0, 0, 0.35);
-    }
-    .ht-job { position: absolute; left: ${HUD.margin}px; top: ${HUD.margin}px; width: ${HUD.panelWidth}px; }
-    .ht-job-title {
-      margin: 0 0 5px; font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase;
-      color: ${PALETTE.accent};
-    }
-    .ht-job-text { margin: 0 0 9px; font-size: 12.5px; line-height: 1.45; color: ${PALETTE.text}; }
-    .ht-job-meta {
-      margin: 0; display: flex; justify-content: space-between; align-items: baseline;
-      font-size: 11.5px; letter-spacing: 0.06em; color: ${PALETTE.muted};
-    }
-    .ht-cash { color: ${PALETTE.cashGreen}; font-weight: 600; font-size: 13px; }
-    .ht-wanted {
-      position: absolute; right: ${HUD.margin}px; top: ${HUD.margin}px;
-      font-size: 22px; letter-spacing: 3px; line-height: 1;
-    }
-    .ht-star { color: rgba(244, 239, 230, 0.3); text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7); }
-    .ht-star.on { color: ${PALETTE.wantedGold}; text-shadow: 0 0 10px rgba(245, 196, 81, 0.55); }
-    .ht-wanted { transition: opacity 0.3s linear; }
-    .ht-wanted.ht-fading { opacity: 0.45; }
-    .ht-status {
-      position: absolute; left: ${HUD.margin}px;
-      bottom: ${HUD.margin + HUD.minimapSize + 12}px; width: ${HUD.minimapSize}px;
-      padding: 8px 10px; border-radius: 10px;
-      background: ${PALETTE.panel};
-      border: 1px solid rgba(242, 163, 94, 0.22);
-    }
-    .ht-health-row { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
-    .ht-heart { color: ${PALETTE.healthRed}; font-size: 15px; line-height: 1; }
-    .ht-health-track {
-      flex: 1; height: 8px; border-radius: 4px; overflow: hidden;
-      background: rgba(244, 239, 230, 0.16);
-      border: 1px solid rgba(0, 0, 0, 0.35);
-    }
-    .ht-health-fill {
-      height: 100%; width: 100%; background: ${PALETTE.healthRed};
-      transition: width 0.12s linear;
-    }
-    .ht-ammo { font-size: 12px; letter-spacing: 0.08em; color: ${PALETTE.muted}; }
-    .ht-ammo b { color: ${PALETTE.text}; font-weight: 600; font-size: 13px; }
-    .ht-map-wrap {
-      position: absolute; left: ${HUD.margin}px; bottom: ${HUD.margin}px;
-      width: ${HUD.minimapSize}px; height: ${HUD.minimapSize}px;
-      border-radius: 50%; overflow: hidden;
-      border: 1px solid rgba(242, 163, 94, 0.35);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-      background: ${PALETTE.panel};
-    }
-    .ht-map { display: block; width: 100%; height: 100%; border-radius: 50%; }
-    .ht-speed {
-      position: absolute; right: ${HUD.margin}px; bottom: ${HUD.margin}px; min-width: 132px;
-      text-align: right; opacity: 0; transition: opacity 0.18s linear;
-    }
-    .ht-speed.show { opacity: 1; }
-    .ht-speed-value { font-size: 26px; font-weight: 600; line-height: 1; }
-    .ht-speed-unit { font-size: 11px; letter-spacing: 0.1em; color: ${PALETTE.muted}; margin-left: 5px; }
-    .ht-speed-track {
-      height: 4px; margin-top: 7px; border-radius: 2px; overflow: hidden;
-      background: rgba(244, 239, 230, 0.16);
-    }
-    .ht-speed-fill { height: 100%; width: 0; background: ${PALETTE.accent}; }
-    .ht-toast {
-      position: absolute; left: 50%; bottom: 22%; transform: translateX(-50%);
-      max-width: 70vw; padding: 8px 16px; border-radius: 999px;
-      background: rgba(18, 16, 26, 0.86);
-      border: 1px solid rgba(242, 163, 94, 0.3);
-      font-size: 13px; line-height: 1.35; text-align: center;
-      opacity: 0; transition: opacity 0.25s linear;
-    }
-    .ht-toast.show { opacity: 1; }
-    .ht-cards { position: absolute; inset: 0; }
-    .ht-card {
-      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-      background: rgba(10, 9, 14, 0.8);
-    }
-    .ht-card.hidden { display: none; }
-    .ht-card-box {
-      width: min(520px, 86vw); padding: 26px 30px; border-radius: 16px;
-      background: rgba(18, 16, 26, 0.94);
-      border: 1px solid rgba(242, 163, 94, 0.35);
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
-    }
-    .ht-card h1 {
-      margin: 0 0 8px; font-size: 34px; letter-spacing: 0.16em; text-transform: uppercase;
-      color: ${PALETTE.accent};
-    }
-    .ht-card h2 {
-      margin: 0 0 10px; font-size: 21px; letter-spacing: 0.1em; text-transform: uppercase;
-      color: ${PALETTE.accent};
-    }
-    .ht-card p { margin: 0 0 12px; font-size: 13.5px; line-height: 1.6; color: ${PALETTE.text}; }
-    .ht-card .ht-hint {
-      margin: 0; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase;
-      color: ${PALETTE.muted};
-    }
-    .ht-card .ht-big { font-size: 30px; font-weight: 600; color: ${PALETTE.cashGreen}; }
-    .ht-keys {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 5px 20px;
-      margin: 16px 0 18px; padding: 0; list-style: none; font-size: 12.5px;
-    }
-    .ht-keys kbd {
-      display: inline-block; min-width: 62px; padding: 1px 6px; margin-right: 6px;
-      border-radius: 4px; background: rgba(244, 239, 230, 0.12);
-      font-family: inherit; font-size: 11.5px; color: ${PALETTE.accent};
-    }
-    #ht-hud.ht-narrow .ht-job { width: 46vw; }
-    #ht-hud.ht-narrow .ht-job-text { display: none; }
-    #ht-hud.ht-narrow .ht-wanted { font-size: 16px; letter-spacing: 1px; }
-    #ht-hud.ht-narrow .ht-speed { min-width: 96px; }
-    #ht-hud.ht-narrow .ht-speed-value { font-size: 20px; }
-    /* The title card stands in front of a game that has not begun, so the panels behind it would be
-       reading a city nobody is playing yet. Every other card leaves them up: they are the state the
-       player wants while paused, down or paid. */
-    #ht-hud.ht-title-up .ht-job,
-    #ht-hud.ht-title-up .ht-wanted,
-    #ht-hud.ht-title-up .ht-status,
-    #ht-hud.ht-title-up .ht-map-wrap,
-    #ht-hud.ht-title-up .ht-speed,
-    #ht-hud.ht-title-up .ht-toast { visibility: hidden; }
+#ht-hud { position: fixed; inset: 0; pointer-events: none; user-select: none; font-family: ${HUD.font}; color: ${PALETTE.text}; -webkit-font-smoothing: antialiased; }
+#ht-hud * { box-sizing: border-box; }
+.ht-panel { background: ${PALETTE.panel}; border: 1px solid rgba(242, 163, 94, 0.28); border-radius: 10px; padding: 10px 12px; box-shadow: 0 6px 22px rgba(0, 0, 0, 0.35); }
+.ht-job { position: absolute; left: ${HUD.margin}px; top: ${HUD.margin}px; width: ${HUD.panelWidth}px; }
+.ht-job-title { margin: 0 0 5px; font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; color: ${PALETTE.accent}; }
+.ht-job-text { margin: 0 0 9px; font-size: 12.5px; line-height: 1.45; color: ${PALETTE.text}; }
+.ht-job-meta { margin: 0; display: flex; justify-content: space-between; align-items: baseline; font-size: 11.5px; letter-spacing: 0.06em; color: ${PALETTE.muted}; }
+.ht-cash { color: ${PALETTE.cashGreen}; font-weight: 600; font-size: 13px; }
+.ht-wanted { position: absolute; right: ${HUD.margin}px; top: ${HUD.margin}px; font-size: 22px; letter-spacing: 3px; line-height: 1; transition: opacity 0.3s linear; }
+.ht-star { color: rgba(244, 239, 230, 0.3); text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7); }
+.ht-star.on { color: ${PALETTE.wantedGold}; text-shadow: 0 0 10px rgba(245, 196, 81, 0.55); }
+.ht-wanted.ht-fading { opacity: 0.45; }
+.ht-status { position: absolute; left: ${HUD.margin}px; bottom: ${HUD.margin + HUD.minimapSize + 12}px; width: ${HUD.minimapSize}px; padding: 8px 10px; border-radius: 10px; background: ${PALETTE.panel}; border: 1px solid rgba(242, 163, 94, 0.22); }
+.ht-health-row { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
+.ht-heart { color: ${PALETTE.healthRed}; font-size: 15px; line-height: 1; }
+.ht-health-track { flex: 1; height: 8px; border-radius: 4px; overflow: hidden; background: rgba(244, 239, 230, 0.16); border: 1px solid rgba(0, 0, 0, 0.35); }
+.ht-health-fill { height: 100%; width: 100%; background: ${PALETTE.healthRed}; transition: width 0.12s linear; }
+.ht-ammo { font-size: 12px; letter-spacing: 0.08em; color: ${PALETTE.muted}; }
+.ht-ammo b { color: ${PALETTE.text}; font-weight: 600; font-size: 13px; }
+.ht-map-wrap { position: absolute; left: ${HUD.margin}px; bottom: ${HUD.margin}px; width: ${HUD.minimapSize}px; height: ${HUD.minimapSize}px; border-radius: 50%; overflow: hidden; border: 1px solid rgba(242, 163, 94, 0.35); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); background: ${PALETTE.panel}; }
+.ht-map { display: block; width: 100%; height: 100%; border-radius: 50%; }
+.ht-speed { position: absolute; right: ${HUD.margin}px; bottom: ${HUD.margin}px; min-width: 132px; text-align: right; opacity: 0; transition: opacity 0.18s linear; }
+.ht-speed.show { opacity: 1; }
+.ht-speed-value { font-size: 26px; font-weight: 600; line-height: 1; }
+.ht-speed-unit { font-size: 11px; letter-spacing: 0.1em; color: ${PALETTE.muted}; margin-left: 5px; }
+.ht-speed-track { height: 4px; margin-top: 7px; border-radius: 2px; overflow: hidden; background: rgba(244, 239, 230, 0.16); }
+.ht-speed-fill { height: 100%; width: 0; background: ${PALETTE.accent}; }
+.ht-toast { position: absolute; left: 50%; bottom: 22%; transform: translateX(-50%); max-width: 70vw; padding: 8px 16px; border-radius: 999px; background: rgba(18, 16, 26, 0.86); border: 1px solid rgba(242, 163, 94, 0.3); font-size: 13px; line-height: 1.35; text-align: center; opacity: 0; transition: opacity 0.25s linear; }
+.ht-toast.show { opacity: 1; }
+.ht-cards { position: absolute; inset: 0; }
+.ht-card { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(10, 9, 14, 0.8); }
+.ht-card.hidden { display: none; }
+.ht-card-box { width: min(520px, 86vw); padding: 26px 30px; border-radius: 16px; background: rgba(18, 16, 26, 0.94); border: 1px solid rgba(242, 163, 94, 0.35); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55); }
+.ht-card h1 { margin: 0 0 8px; font-size: 34px; letter-spacing: 0.16em; text-transform: uppercase; color: ${PALETTE.accent}; }
+.ht-card h2 { margin: 0 0 10px; font-size: 21px; letter-spacing: 0.1em; text-transform: uppercase; color: ${PALETTE.accent}; }
+.ht-card p { margin: 0 0 12px; font-size: 13.5px; line-height: 1.6; color: ${PALETTE.text}; }
+.ht-card .ht-hint { margin: 0; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: ${PALETTE.muted}; }
+.ht-card .ht-big { font-size: 30px; font-weight: 600; color: ${PALETTE.cashGreen}; }
+.ht-keys { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 20px; margin: 16px 0 18px; padding: 0; list-style: none; font-size: 12.5px; }
+.ht-keys kbd { display: inline-block; min-width: 62px; padding: 1px 6px; margin-right: 6px; border-radius: 4px; background: rgba(244, 239, 230, 0.12); font-family: inherit; font-size: 11.5px; color: ${PALETTE.accent}; }
+#ht-hud.ht-narrow .ht-job { width: 46vw; }
+#ht-hud.ht-narrow .ht-job-text { display: none; }
+#ht-hud.ht-narrow .ht-wanted { font-size: 16px; letter-spacing: 1px; }
+#ht-hud.ht-narrow .ht-speed { min-width: 96px; }
+#ht-hud.ht-narrow .ht-speed-value { font-size: 20px; }
+#ht-hud.ht-title-up .ht-job, #ht-hud.ht-title-up .ht-wanted, #ht-hud.ht-title-up .ht-status, #ht-hud.ht-title-up .ht-map-wrap, #ht-hud.ht-title-up .ht-speed, #ht-hud.ht-title-up .ht-toast { visibility: hidden; }
   `;
   document.head.appendChild(style);
 }
@@ -196,43 +103,34 @@ export function createHud({ missions, combat, police, vehicles, player }) {
   root.id = 'ht-hud';
   document.body.appendChild(root);
 
-  const jobPanel = element('section', 'ht-panel ht-job', root);
-  const jobTitle = element('h2', 'ht-job-title', jobPanel);
-  const jobText = element('p', 'ht-job-text', jobPanel);
-  const jobMeta = element('p', 'ht-job-meta', jobPanel);
-  const cashLine = element('span', 'ht-cash', jobMeta);
-  const stepLine = element('span', 'ht-step', jobMeta);
+  const jobPanel = element('section', 'ht-panel ht-job', root), jobTitle = element('h2', 'ht-job-title', jobPanel);
+  const jobText = element('p', 'ht-job-text', jobPanel), jobMeta = element('p', 'ht-job-meta', jobPanel);
+  const cashLine = element('span', 'ht-cash', jobMeta), stepLine = element('span', 'ht-step', jobMeta);
 
-  const wanted = element('div', 'ht-wanted', root);
-  const stars = [];
+  const wanted = element('div', 'ht-wanted', root), stars = [];
   for (let i = 0; i < STAR_COUNT; i++) {
     const star = element('span', 'ht-star', wanted);
     star.textContent = '☆';
     stars.push(star);
   }
 
-  const statusPanel = element('div', 'ht-status', root);
-  const healthRow = element('div', 'ht-health-row', statusPanel);
+  const statusPanel = element('div', 'ht-status', root), healthRow = element('div', 'ht-health-row', statusPanel);
   element('span', 'ht-heart', healthRow).textContent = '♥';
   const healthTrack = element('div', 'ht-health-track', healthRow);
   const healthFill = element('div', 'ht-health-fill', healthTrack);
-  const ammoLine = element('div', 'ht-ammo', statusPanel);
-  const magValue = element('b', '', ammoLine);
+  const ammoLine = element('div', 'ht-ammo', statusPanel), magValue = element('b', '', ammoLine);
   const reserveValue = element('span', '', ammoLine);
   magValue.textContent = '0';
   reserveValue.textContent = ' / 0';
 
-  const mapWrap = element('div', 'ht-map-wrap', root);
-  const mapCanvas = element('canvas', 'ht-map', mapWrap);
+  const mapWrap = element('div', 'ht-map-wrap', root), mapCanvas = element('canvas', 'ht-map', mapWrap);
   const dpr = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
   mapCanvas.width = Math.round(HUD.minimapSize * dpr);
   mapCanvas.height = Math.round(HUD.minimapSize * dpr);
-  const mapCtx = mapCanvas.getContext('2d');
-  const mapScale = (HUD.minimapSize / 2 - MAP_MARGIN) / HUD.minimapRange;
+  const mapCtx = mapCanvas.getContext('2d'), mapScale = (HUD.minimapSize / 2 - MAP_MARGIN) / HUD.minimapRange;
   const forward = new Vector3();
 
-  const speedo = element('div', 'ht-panel ht-speed', root);
-  const speedValue = element('span', 'ht-speed-value', speedo);
+  const speedo = element('div', 'ht-panel ht-speed', root), speedValue = element('span', 'ht-speed-value', speedo);
   const speedUnit = element('span', 'ht-speed-unit', speedo);
   speedUnit.textContent = 'km/h';
   const speedTrack = element('div', 'ht-speed-track', speedo);
@@ -285,19 +183,8 @@ export function createHud({ missions, combat, police, vehicles, player }) {
 
   const cards = { title: titleCard, paused: pauseCard, dead: deathCard, complete: completeCard };
 
-  let mode = 'title';
-  let clock = 0;
-  let toastTimer = 0;
-  let stepDistance = 0;
-  let lastWidth = 0;
-  let lastTitle = null;
-  let lastText = null;
-  let lastCash = null;
-  let lastHealth = null;
-  let lastAmmo = null;
-  let lastStars = -1;
-  let lastSpeed = null;
-  let audio = null;
+  let mode = 'title', clock = 0, toastTimer = 0, stepDistance = 0, lastWidth = 0, lastTitle = null, lastText = null;
+  let lastCash = null, lastHealth = null, lastAmmo = null, lastStars = -1, lastSpeed = null, audio = null;
 
   function showCard(value) {
     for (const name of Object.keys(cards)) {
@@ -306,19 +193,14 @@ export function createHud({ missions, combat, police, vehicles, player }) {
     root.classList.toggle('ht-title-up', value === 'title');
   }
 
-  // Sound. Everything below is oscillators and a table of noise: no file, no request, and no draw
-  // from the global random source, so a session sounds the same twice the way its city looks the same
-  // twice.
   function createAudio() {
     const Ctor = typeof window !== 'undefined' ? window.AudioContext || window.webkitAudioContext : null;
     if (!Ctor) return null;
-    const ctx = new Ctor();
-    const master = ctx.createGain();
+    const ctx = new Ctor(), master = ctx.createGain();
     master.gain.value = 0.85;
     master.connect(ctx.destination);
 
-    const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate), ctx.sampleRate);
-    const data = buffer.getChannelData(0);
+    const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate), ctx.sampleRate), data = buffer.getChannelData(0);
     let noise = 0x2545f491;
     for (let i = 0; i < data.length; i++) {
       noise ^= noise << 13;
@@ -385,8 +267,7 @@ export function createHud({ missions, combat, police, vehicles, player }) {
 
   function noiseBurst(type, frequency, q, level, seconds, offset) {
     const { ctx, master, buffer } = audio;
-    const now = ctx.currentTime;
-    const source = ctx.createBufferSource();
+    const now = ctx.currentTime, source = ctx.createBufferSource();
     source.buffer = buffer;
     const filter = ctx.createBiquadFilter();
     filter.type = type;
@@ -403,8 +284,7 @@ export function createHud({ missions, combat, police, vehicles, player }) {
 
   function tone(type, from, to, level, seconds) {
     const { ctx, master } = audio;
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
+    const now = ctx.currentTime, osc = ctx.createOscillator();
     osc.type = type;
     osc.frequency.setValueAtTime(from, now);
     osc.frequency.exponentialRampToValueAtTime(Math.max(20, to), now + seconds);
@@ -464,12 +344,10 @@ export function createHud({ missions, combat, police, vehicles, player }) {
 
   function syncLoops(dt) {
     if (!audio) return;
-    const now = audio.ctx.currentTime;
-    const car = vehicles ? vehicles.drivenCar : null;
+    const now = audio.ctx.currentTime, car = vehicles ? vehicles.drivenCar : null;
 
     if (car) {
-      const engine = ensureEngine();
-      const pace = Math.min(1, Math.abs(car.speed) / Math.max(1, car.spec.maxSpeed));
+      const engine = ensureEngine(), pace = Math.min(1, Math.abs(car.speed) / Math.max(1, car.spec.maxSpeed));
       engine.osc.frequency.setTargetAtTime(ENGINE_IDLE + pace * ENGINE_SPAN, now, 0.08);
       engine.sub.frequency.setTargetAtTime((ENGINE_IDLE + pace * ENGINE_SPAN) / 2, now, 0.08);
       engine.gain.gain.setTargetAtTime(ENGINE_GAIN + pace * ENGINE_DRIVE, now, 0.12);
@@ -506,13 +384,8 @@ export function createHud({ missions, combat, police, vehicles, player }) {
 
   function drawMap(camera) {
     if (!mapCtx) return;
-    const size = HUD.minimapSize;
-    const centre = size / 2;
-    const px = player.position.x;
-    const pz = player.position.z;
-    const heading = headingOf(camera);
-    const cos = Math.cos(heading);
-    const sin = Math.sin(heading);
+    const size = HUD.minimapSize, centre = size / 2, px = player.position.x, pz = player.position.z;
+    const heading = headingOf(camera), cos = Math.cos(heading), sin = Math.sin(heading);
 
     mapCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     mapCtx.clearRect(0, 0, size, size);
@@ -532,8 +405,7 @@ export function createHud({ missions, combat, police, vehicles, player }) {
     mapCtx.fillStyle = 'rgba(232, 217, 189, 0.16)';
     for (let j = 0; j < CITY.gridZ; j++) {
       for (let i = 0; i < CITY.gridX; i++) {
-        const x = -HALF_X + PITCH / 2 + i * PITCH;
-        const z = -HALF_Z + PITCH / 2 + j * PITCH;
+        const x = -HALF_X + PITCH / 2 + i * PITCH, z = -HALF_Z + PITCH / 2 + j * PITCH;
         mapCtx.fillRect(x - CITY.blockSize / 2, z - CITY.blockSize / 2, CITY.blockSize, CITY.blockSize);
       }
     }
@@ -556,12 +428,9 @@ export function createHud({ missions, combat, police, vehicles, player }) {
 
     const marker = missions.state.marker;
     if (marker) {
-      const dx = marker.x - px;
-      const dz = marker.z - pz;
-      let sx = (dx * cos - dz * sin) * mapScale;
-      let sy = (dx * sin + dz * cos) * mapScale;
-      const reach = Math.hypot(sx, sy);
-      const rim = centre - MAP_RIM;
+      const dx = marker.x - px, dz = marker.z - pz;
+      let sx = (dx * cos - dz * sin) * mapScale, sy = (dx * sin + dz * cos) * mapScale;
+      const reach = Math.hypot(sx, sy), rim = centre - MAP_RIM;
       if (reach > rim) {
         sx = (sx / reach) * rim;
         sy = (sy / reach) * rim;
@@ -646,8 +515,6 @@ export function createHud({ missions, combat, police, vehicles, player }) {
       }
       lastStars = level;
     }
-    // Stars dim while no officer can see the player: the level is still wanted, but it is on its way
-    // out, and the player should be able to tell the difference without counting seconds.
     wanted.classList.toggle('ht-fading', level > 0 && police && !police.seen);
 
     const health = combat ? Math.max(0, Math.min(COMBAT.health, combat.state.health)) : 0;
@@ -657,8 +524,7 @@ export function createHud({ missions, combat, police, vehicles, player }) {
       lastHealth = healthPercent;
     }
 
-    const ammo = combat ? combat.state.ammo : 0;
-    const reserve = combat ? combat.state.reserve : 0;
+    const ammo = combat ? combat.state.ammo : 0, reserve = combat ? combat.state.reserve : 0;
     const ammoText = `${ammo}/${reserve}`;
     if (ammoText !== lastAmmo) {
       magValue.textContent = `${ammo}`;

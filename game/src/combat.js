@@ -1,25 +1,16 @@
-// The pistol, the health behind it and the rounds on the ground. One rule holds the file together: a
-// round stops at the first wall, and that wall is found with geometry.firstHit against city.colliders —
-// the same test the camera's boom and an officer's line of fire use. A bullet that passes through a
-// building is the bug this arrangement exists to prevent, so the shot's reach is measured before any
-// man is considered a target: a body past the wall is not behind a wall, he is out of the shot.
-
+// The pistol, the health behind it and the rounds on the ground. A round stops at the first wall, found
+// with geometry.firstHit against city.colliders, so a body past the wall is out of the shot.
 import { BoxGeometry, Mesh, MeshBasicMaterial, MeshLambertMaterial, Vector3 } from 'three';
 import { COMBAT, PALETTE } from './config.js';
 import { firstHit, merge, tintedBox } from './geometry.js';
 
-// Where a round is aimed on a body. A man is not a point, and a shot that had to find his knees would
-// read as a miss on someone standing in the open.
 const CHEST = 1.05;
-// The tracer starts past the near plane, so the muzzle flash is a flash and not the inside of the head.
 const MUZZLE = 0.45;
 const FLASH_SECONDS = 0.06;
 const TRACER_SECONDS = 0.09;
 const SPARK_SECONDS = 0.26;
 const EFFECTS = 8;
 const PICKUP_RISE = 0.3;
-// Half a torso of slack around the line: the cone is narrow, but a body has width and the shot is not
-// a laser pointed at his sternum.
 const BODY_SLACK = 0.5;
 const UP = new Vector3(0, 1, 0);
 
@@ -43,15 +34,9 @@ function makePart(scene, colour, seconds) {
 export function createCombat({ scene, player, camera, peds, city }) {
   const state = { health: COMBAT.health, dead: false, ammo: COMBAT.magSize, reserve: COMBAT.ammoReserve };
 
-  const listeners = [];
-  const drops = [];
-  const effects = [];
-  let cooldown = 0;
-  let clock = 0;
-  let effectCursor = 0;
+  const listeners = [], drops = [], effects = [];
+  let cooldown = 0, clock = 0, effectCursor = 0;
 
-  // Spread needs a stream of small numbers and the world-shaping rule keeps Math.random out of the
-  // game, so the pistol carries its own xorshift: same shots in the same order on every run.
   let noise = 0x2545f491;
   function scatter() {
     noise ^= noise << 13;
@@ -70,14 +55,8 @@ export function createCombat({ scene, player, camera, peds, city }) {
     });
   }
 
-  const from = new Vector3();
-  const to = new Vector3();
-  const end = new Vector3();
-  const dir = new Vector3();
-  const right = new Vector3();
-  const lift = new Vector3();
-  const body = new Vector3();
-  const muzzle = new Vector3();
+  const from = new Vector3(), to = new Vector3(), end = new Vector3(), dir = new Vector3(), right = new Vector3();
+  const lift = new Vector3(), body = new Vector3(), muzzle = new Vector3();
 
   function fade(part, dt) {
     if (part.timer <= 0) return;
@@ -89,17 +68,20 @@ export function createCombat({ scene, player, camera, peds, city }) {
     part.material.opacity = part.timer / part.seconds;
   }
 
+  function show(part, at, scale) {
+    part.mesh.position.copy(at);
+    part.mesh.scale.setScalar(scale);
+    part.mesh.visible = true;
+    part.material.opacity = 1;
+    part.timer = part.seconds;
+  }
+
   function flashAndTrace(start, finish, direction) {
     const entry = effects[effectCursor % EFFECTS];
     effectCursor += 1;
 
     muzzle.copy(start).addScaledVector(direction, MUZZLE);
-
-    entry.flash.mesh.position.copy(muzzle);
-    entry.flash.mesh.scale.setScalar(0.17 + Math.abs(scatter()) * 0.05);
-    entry.flash.mesh.visible = true;
-    entry.flash.material.opacity = 1;
-    entry.flash.timer = entry.flash.seconds;
+    show(entry.flash, muzzle, 0.17 + Math.abs(scatter()) * 0.05);
 
     const span = Math.max(0.05, muzzle.distanceTo(finish));
     entry.tracer.mesh.position.copy(muzzle).add(finish).multiplyScalar(0.5);
@@ -109,18 +91,11 @@ export function createCombat({ scene, player, camera, peds, city }) {
     entry.tracer.material.opacity = 1;
     entry.tracer.timer = entry.tracer.seconds;
 
-    entry.spark.mesh.position.copy(finish);
-    entry.spark.mesh.scale.setScalar(0.18);
-    entry.spark.mesh.visible = true;
-    entry.spark.material.opacity = 1;
-    entry.spark.timer = entry.spark.seconds;
+    show(entry.spark, finish, 0.18);
   }
 
-  // The nearest man standing in the cone, and only inside the reach the wall left. The order matters:
-  // testing the men first and the wall second is how a round ends up killing somebody indoors.
   function targetInCone(reach) {
-    let target = null;
-    let nearest = Infinity;
+    let target = null, nearest = Infinity;
     for (const ped of peds.list) {
       if (!ped || ped.state === 'down' || ped.health <= 0) continue;
       body.set(ped.position.x - from.x, ped.position.y + CHEST - from.y, ped.position.z - from.z);
@@ -137,7 +112,6 @@ export function createCombat({ scene, player, camera, peds, city }) {
   }
 
   function shoot() {
-    // A man holding a wheel is not holding a pistol: the gun is stowed until he is out of the car.
     if (state.dead || player.state === 'driving') return false;
     if (state.ammo <= 0 || cooldown > 0) return false;
 
@@ -156,8 +130,7 @@ export function createCombat({ scene, player, camera, peds, city }) {
     const shot = targetInCone(reach);
     end.copy(from).addScaledVector(dir, reach);
 
-    let hit = false;
-    let killed = false;
+    let hit = false, killed = false;
     if (shot.target) {
       hit = true;
       shot.target.health -= COMBAT.damage;
@@ -200,8 +173,6 @@ export function createCombat({ scene, player, camera, peds, city }) {
     drops.splice(index, 1);
   }
 
-  // The player's only resupply. The oldest box goes when the street is already littered, so a long
-  // fight leaves a handful of pickups instead of a trail of them all session.
   function dropAmmo(x, z) {
     while (drops.length >= COMBAT.maxDrops) removeDrop(0);
     const mesh = new Mesh(AMMO_GEOMETRY, AMMO_MATERIAL);
@@ -229,8 +200,7 @@ export function createCombat({ scene, player, camera, peds, city }) {
       drop.spin += dt * 2.2;
       drop.mesh.rotation.y = drop.spin;
       drop.mesh.position.y = drop.ground + PICKUP_RISE + Math.sin(clock * 3 + drop.x) * 0.07;
-      const dx = player.position.x - drop.x;
-      const dz = player.position.z - drop.z;
+      const dx = player.position.x - drop.x, dz = player.position.z - drop.z;
       if (Math.hypot(dx, dz) > COMBAT.dropReach) continue;
       if (Math.abs(player.position.y - drop.ground) > 1.6) continue;
       state.reserve += COMBAT.magSize;

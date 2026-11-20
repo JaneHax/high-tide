@@ -1,16 +1,13 @@
-// The police of Puerto Sol: heat and stars, cruisers that drive the city's own grid, and officers who
-// get out and shoot. Two rules shape the file. A line of fire is geometry.firstHit cast at chest
-// height, so a building between a muzzle and the player stops the round the same way it stops the
-// camera's boom — no hand-rolled sampling along the line. And the siren lights are a fixed pool built
-// once and parked under the world: adding a PointLight at the moment a chase starts recompiles every
-// lit shader in the scene and stutters the frame the player is meant to feel.
-
+// The police: heat and stars, cruisers that drive the city's grid, and officers who get out and shoot.
+// Every line of fire is geometry.firstHit at chest height, so a wall stops a round the way it stops the
+// camera's boom.
+//
+// The siren lights are a fixed pool built once and parked under the world: a PointLight added when a
+// chase starts recompiles every lit shader in the scene and stutters the frame the player feels.
 import { BoxGeometry, Color, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PointLight, Vector3 } from 'three';
 import { COMBAT, PALETTE, POLICE } from './config.js';
 import { firstHit, merge, tintedBox } from './geometry.js';
 
-// Chest height is where every line of fire in the game is drawn from and at. A bullet at ankle height
-// clears a wall a man cannot see over, which is the shape of the bug this constant prevents.
 const CHEST = 1.25;
 const PLAYER_CHEST = 1.1;
 const ROOF = 1.55;
@@ -25,30 +22,30 @@ const BLUE_OFF = new Color(PALETTE.sirenBlue).multiplyScalar(0.22);
 
 const SHELL_MATERIAL = new MeshLambertMaterial({ vertexColors: true, flatShading: true });
 
+const SIDES = [-1, 1];
+
 const SHELL_GEOMETRY = merge([
   tintedBox(CRUISER.width, 0.62, CRUISER.length, PALETTE.wallCream, 0, WHEEL + 0.31, 0),
   tintedBox(CRUISER.width * 1.01, 0.2, CRUISER.length * 0.66, PALETTE.sirenBlue, 0, WHEEL + 0.42, 0),
   tintedBox(CRUISER.width * 0.84, 0.5, CRUISER.length * 0.44, PALETTE.asphalt, 0, WHEEL + 0.84, CRUISER.length * 0.02),
   tintedBox(CRUISER.width * 0.8, 0.1, CRUISER.length * 0.42, PALETTE.wallCream, 0, WHEEL + 1.12, CRUISER.length * 0.02),
-  tintedBox(CRUISER.width * 1.02, 0.24, 0.34, PALETTE.asphalt, 0, WHEEL + 0.16, -CRUISER.length / 2 + 0.16),
-  tintedBox(CRUISER.width * 1.02, 0.24, 0.34, PALETTE.asphalt, 0, WHEEL + 0.16, CRUISER.length / 2 - 0.16),
-  tintedBox(0.3, 0.72, 0.72, '#14151a', -CRUISER.width / 2 + 0.14, WHEEL, -CRUISER.length / 2 + 1.05),
-  tintedBox(0.3, 0.72, 0.72, '#14151a', CRUISER.width / 2 - 0.14, WHEEL, -CRUISER.length / 2 + 1.05),
-  tintedBox(0.3, 0.72, 0.72, '#14151a', -CRUISER.width / 2 + 0.14, WHEEL, CRUISER.length / 2 - 1.05),
-  tintedBox(0.3, 0.72, 0.72, '#14151a', CRUISER.width / 2 - 0.14, WHEEL, CRUISER.length / 2 - 1.05),
+  ...SIDES.flatMap((s) => [
+    tintedBox(CRUISER.width * 1.02, 0.24, 0.34, PALETTE.asphalt, 0, WHEEL + 0.16, s * (CRUISER.length / 2 - 0.16)),
+    tintedBox(0.3, 0.72, 0.72, '#14151a', s * (CRUISER.width / 2 - 0.14), WHEEL, -CRUISER.length / 2 + 1.05),
+    tintedBox(0.3, 0.72, 0.72, '#14151a', s * (CRUISER.width / 2 - 0.14), WHEEL, CRUISER.length / 2 - 1.05),
+  ]),
 ]);
 
 const OFFICER_GEOMETRY = merge([
   tintedBox(0.44, 0.5, 0.27, PALETTE.sirenBlue, 0, 1.13, 0),
   tintedBox(0.52, 0.14, 0.29, PALETTE.asphalt, 0, 1.36, 0),
-  tintedBox(0.15, 0.34, 0.17, PALETTE.sirenBlue, -0.31, 1.19, 0),
-  tintedBox(0.15, 0.34, 0.17, PALETTE.sirenBlue, 0.31, 1.19, 0),
-  tintedBox(0.12, 0.28, 0.13, PALETTE.sand, -0.31, 0.88, 0),
-  tintedBox(0.12, 0.28, 0.13, PALETTE.sand, 0.31, 0.88, 0),
   tintedBox(0.24, 0.26, 0.24, PALETTE.sand, 0, 1.6, 0),
   tintedBox(0.29, 0.09, 0.29, PALETTE.asphalt, 0, 1.76, 0),
-  tintedBox(0.17, 0.72, 0.2, PALETTE.asphalt, -0.13, 0.36, 0),
-  tintedBox(0.17, 0.72, 0.2, PALETTE.asphalt, 0.13, 0.36, 0),
+  ...SIDES.flatMap((s) => [
+    tintedBox(0.15, 0.34, 0.17, PALETTE.sirenBlue, s * 0.31, 1.19, 0),
+    tintedBox(0.12, 0.28, 0.13, PALETTE.sand, s * 0.31, 0.88, 0),
+    tintedBox(0.17, 0.72, 0.2, PALETTE.asphalt, s * 0.13, 0.36, 0),
+  ]),
 ]);
 
 const BAR_GEOMETRY = new BoxGeometry(0.34, 0.14, 0.9);
@@ -58,8 +55,7 @@ function wrap(angle) {
 }
 
 function nearestOf(list, value) {
-  let best = list[0];
-  let gap = Math.abs(value - best);
+  let best = list[0], gap = Math.abs(value - best);
   for (const entry of list) {
     const distance = Math.abs(entry - value);
     if (distance < gap) {
@@ -76,14 +72,8 @@ function starsFor(heat) {
 }
 
 export function createPolice({ city, scene, player, combat }) {
-  const cars = [];
-  const officers = [];
-  const lights = [];
-  const from = new Vector3();
-  const to = new Vector3();
-  let clock = 0;
-  let quiet = 0;
-  let dropCallback = null;
+  const cars = [], officers = [], lights = [], from = new Vector3(), to = new Vector3();
+  let clock = 0, quiet = 0, dropCallback = null;
 
   const api = {
     cars,
@@ -101,8 +91,6 @@ export function createPolice({ city, scene, player, combat }) {
     },
   };
 
-  // The pool is built with the module and never grows: the same three lights serve one star and five,
-  // parked a kilometre under the street when no siren is on.
   for (let i = 0; i < POLICE.carCount; i++) {
     const light = new PointLight(RED_ON, 0, 26, 2);
     light.position.set(0, -1000, 0);
@@ -118,18 +106,15 @@ export function createPolice({ city, scene, player, combat }) {
   }
 
   function canSee(point) {
-    const dx = point.x - player.position.x;
-    const dz = point.z - player.position.z;
+    const dx = point.x - player.position.x, dz = point.z - player.position.z;
     if (dx * dx + dz * dz > POLICE.sightRange * POLICE.sightRange) return false;
     return clearLine(point, CHEST, PLAYER_CHEST);
   }
 
   function makeSiren() {
     const red = new MeshBasicMaterial({ color: PALETTE.sirenRed });
-    const blue = new MeshBasicMaterial({ color: PALETTE.sirenBlue });
-    const group = new Group();
-    const left = new Mesh(BAR_GEOMETRY, red);
-    const right = new Mesh(BAR_GEOMETRY, blue);
+    const blue = new MeshBasicMaterial({ color: PALETTE.sirenBlue }), group = new Group();
+    const left = new Mesh(BAR_GEOMETRY, red), right = new Mesh(BAR_GEOMETRY, blue);
     left.position.set(-0.22, ROOF, 0);
     right.position.set(0.22, ROOF, 0);
     group.add(left);
@@ -138,43 +123,28 @@ export function createPolice({ city, scene, player, combat }) {
   }
 
   function spawnSpot() {
-    const px = player.position.x;
-    const pz = player.position.z;
-    let best = null;
+    const px = player.position.x, pz = player.position.z;
+    let best = null, near = null;
     for (const x of city.roads.zRoads) {
       for (const z of city.roads.xRoads) {
         const distance = Math.hypot(x - px, z - pz);
+        if (!near || distance < near.distance) near = { x, z, distance };
         if (distance < POLICE.spawnDistance * 0.55 || distance > POLICE.spawnDistance * 1.7) continue;
         const score = Math.abs(distance - POLICE.spawnDistance);
         if (!best || score < best.score) best = { x, z, score };
       }
     }
-    // The promenade and the hills have no grid at their door, so the nearest junction is the answer
-    // there: a cruiser with nowhere to appear is a chase that never starts.
-    if (!best) {
-      let near = null;
-      for (const x of city.roads.zRoads) {
-        for (const z of city.roads.xRoads) {
-          const distance = Math.hypot(x - px, z - pz);
-          if (!near || distance < near.distance) near = { x, z, distance };
-        }
-      }
-      best = near || { x: px + POLICE.spawnDistance, z: pz };
-    }
-    // A second cruiser stands behind the first on the same road instead of inside it.
+    // The promenade and the hills have no grid at their door, so the nearest junction is the answer there.
+    best = best || near || { x: px + POLICE.spawnDistance, z: pz };
     if (cars.length) {
-      const dx = px - best.x;
-      const dz = pz - best.z;
-      const span = Math.hypot(dx, dz) || 1;
-      const gap = cars.length * 7;
+      const dx = px - best.x, dz = pz - best.z, span = Math.hypot(dx, dz) || 1, gap = cars.length * 7;
       return { x: best.x + (dx / span) * gap, z: best.z + (dz / span) * gap };
     }
     return { x: best.x, z: best.z };
   }
 
   function spawnCar() {
-    const spot = spawnSpot();
-    const body = new Group();
+    const spot = spawnSpot(), body = new Group();
     body.rotation.order = 'YXZ';
     const shell = new Mesh(SHELL_GEOMETRY, SHELL_MATERIAL);
     shell.castShadow = true;
@@ -236,15 +206,11 @@ export function createPolice({ city, scene, player, combat }) {
   function dismount(car) {
     if (car.retire || car.crew <= 0 || api.stars < 2) return;
     const distance = Math.hypot(player.position.x - car.position.x, player.position.z - car.position.z);
-    // A crew gets out when the car has parked, even when the junction it could reach is further than
-    // arm's length from the player: a cruiser that never opens a door is a parade float.
     const parked = Math.abs(car.speed) < 0.3;
     if (distance > POLICE.dismountRange && !(parked && distance <= POLICE.sightRange)) return;
-    const rightX = Math.cos(car.heading);
-    const rightZ = -Math.sin(car.heading);
+    const rightX = Math.cos(car.heading), rightZ = -Math.sin(car.heading);
     for (let i = 0; i < car.crew; i++) {
-      const side = i % 2 === 0 ? 1 : -1;
-      const offset = side * (CRUISER.width / 2 + 0.9);
+      const side = i % 2 === 0 ? 1 : -1, offset = side * (CRUISER.width / 2 + 0.9);
       addOfficer(car.position.x + rightX * offset, car.position.z + rightZ * offset, car.heading);
     }
     car.crew = 0;
@@ -257,7 +223,6 @@ export function createPolice({ city, scene, player, combat }) {
     officer.mesh.position.copy(officer.position);
     officer.mesh.position.y += 0.2;
     officer.mesh.rotation.set(-Math.PI / 2, officer.heading, 0);
-    // His rounds are the player's resupply, so the body is what tells the street where the box is.
     if (dropCallback) dropCallback(officer.position.x, officer.position.z);
   }
 
@@ -280,17 +245,12 @@ export function createPolice({ city, scene, player, combat }) {
     if (officer.down) return;
 
     officer.cooldown = Math.max(0, officer.cooldown - dt);
-    const dx = player.position.x - officer.position.x;
-    const dz = player.position.z - officer.position.z;
+    const dx = player.position.x - officer.position.x, dz = player.position.z - officer.position.z;
     const distance = Math.hypot(dx, dz);
 
-    // An officer the wanted level no longer pays for walks away instead of shooting: a search that has
-    // been called off cannot still be putting rounds into the player.
     if (officer.retire) {
       if (distance > 1e-3) {
-        const step = POLICE.officerSpeed * dt;
-        const mx = -(dx / distance) * step;
-        const mz = -(dz / distance) * step;
+        const step = POLICE.officerSpeed * dt, mx = -(dx / distance) * step, mz = -(dz / distance) * step;
         if (!stepOfficer(officer, mx, mz)) {
           if (!stepOfficer(officer, mx, 0)) stepOfficer(officer, 0, mz);
         }
@@ -303,17 +263,13 @@ export function createPolice({ city, scene, player, combat }) {
 
     if (distance > POLICE.officerHoldRange && distance > 1e-3) {
       const step = Math.min(POLICE.officerSpeed * dt, distance - POLICE.officerHoldRange);
-      const mx = (dx / distance) * step;
-      const mz = (dz / distance) * step;
-      // A man who meets a wall follows it rather than stopping dead in the open.
+      const mx = (dx / distance) * step, mz = (dz / distance) * step;
       if (!stepOfficer(officer, mx, mz)) {
         if (!stepOfficer(officer, mx, 0)) stepOfficer(officer, 0, mz);
       }
       officer.heading = Math.atan2(-dx, -dz);
     }
 
-    // A round only leaves the pistol when there is nothing solid between the muzzle and the player:
-    // shooting through a wall would make cover meaningless.
     if (distance <= POLICE.officerShootRange && officer.cooldown <= 0 && clearLine(officer.position, CHEST, PLAYER_CHEST)) {
       officer.cooldown = POLICE.officerFireInterval;
       api.shots += 1;
@@ -325,13 +281,8 @@ export function createPolice({ city, scene, player, combat }) {
   }
 
   function planRoute(car, goalX, goalZ) {
-    const sx = nearestOf(city.roads.zRoads, car.position.x);
-    const sz = nearestOf(city.roads.xRoads, car.position.z);
-    const ex = nearestOf(city.roads.zRoads, goalX);
-    const ez = nearestOf(city.roads.xRoads, goalZ);
-    // The car is already on a road, so the route starts with the one it is travelling: the first turn
-    // is the crossing where its own road meets the goal's other axis. Routing back through the
-    // junction it just left makes it U-turn for no reason.
+    const sx = nearestOf(city.roads.zRoads, car.position.x), sz = nearestOf(city.roads.xRoads, car.position.z);
+    const ex = nearestOf(city.roads.zRoads, goalX), ez = nearestOf(city.roads.xRoads, goalZ);
     const onVertical = Math.abs(car.position.x - sx) < Math.abs(car.position.z - sz);
     car.route = [];
     if (onVertical) {
@@ -344,8 +295,6 @@ export function createPolice({ city, scene, player, combat }) {
     car.leg = 0;
   }
 
-  // A waypoint is reached by distance. The radius is wider than the car's turning circle at full speed,
-  // because a waypoint a car can circle but never enter is a police car that never arrives.
   function currentTarget(car) {
     while (car.leg < car.route.length) {
       const target = car.route[car.leg];
@@ -377,9 +326,6 @@ export function createPolice({ city, scene, player, combat }) {
     const atGoal = Math.hypot(goalX - car.position.x, goalZ - car.position.z) < 7;
     const holding = !car.retire && (toPlayer < POLICE.dismountRange || atGoal);
 
-    // A route is only replanned when the goal junction moves or the route runs out. Replanning on a
-    // timer sends a car back to the junction it has just passed and it circles it for the rest of the
-    // chase instead of driving anywhere.
     const moved = !car.goal || Math.abs(car.goal.x - goalX) > 1 || Math.abs(car.goal.z - goalZ) > 1;
     if (holding) car.route = [];
     else if (car.route.length === 0 || moved) planRoute(car, goalX, goalZ);
@@ -388,19 +334,12 @@ export function createPolice({ city, scene, player, combat }) {
     const target = holding ? null : currentTarget(car);
     let wantedSpeed = 0;
     if (target) {
-      // Each cruiser aims a lane's width to one side of the waypoint, so three of them on the same
-      // road sit abreast instead of driving through each other.
-      const dx = target.x - car.position.x;
-      const dz = target.z - car.position.z;
-      const span = Math.hypot(dx, dz) || 1;
-      const aimX = target.x - (dz / span) * car.lane;
-      const aimZ = target.z + (dx / span) * car.lane;
+      const dx = target.x - car.position.x, dz = target.z - car.position.z, span = Math.hypot(dx, dz) || 1;
+      const aimX = target.x - (dz / span) * car.lane, aimZ = target.z + (dx / span) * car.lane;
       const wanted = Math.atan2(-(aimX - car.position.x), -(aimZ - car.position.z));
       const error = Math.abs(wrap(wanted - car.heading));
       const turn = POLICE.carTurnRate * dt * (0.35 + Math.min(1, Math.abs(car.speed) / 8));
       car.heading += Math.max(-turn, Math.min(turn, wrap(wanted - car.heading)));
-      // A corner is taken slowly, which is also what keeps the turning circle tight enough to make the
-      // turn instead of swinging wide into the block.
       wantedSpeed = POLICE.carSpeed * Math.max(0.28, 1 - error / Math.PI);
     }
 
@@ -408,8 +347,7 @@ export function createPolice({ city, scene, player, combat }) {
     car.speed += Math.max(-rate * dt, Math.min(rate * dt, wantedSpeed - car.speed));
 
     if (Math.abs(car.speed) > 1e-3) {
-      const stepX = -Math.sin(car.heading) * car.speed * dt;
-      const stepZ = -Math.cos(car.heading) * car.speed * dt;
+      const stepX = -Math.sin(car.heading) * car.speed * dt, stepZ = -Math.cos(car.heading) * car.speed * dt;
       from.set(car.position.x, car.position.y + 1, car.position.z);
       to.set(car.position.x + stepX, car.position.y + 1, car.position.z + stepZ);
       if (firstHit(from, to, city.colliders, CRUISER.width / 2) >= 1) {
@@ -426,17 +364,13 @@ export function createPolice({ city, scene, player, combat }) {
   }
 
   function playerCanSee(point, height) {
-    const dx = point.x - player.position.x;
-    const dz = point.z - player.position.z;
+    const dx = point.x - player.position.x, dz = point.z - player.position.z;
     if (dx * dx + dz * dz > POLICE.sightRange * POLICE.sightRange) return false;
     from.set(player.position.x, player.position.y + PLAYER_CHEST, player.position.z);
     to.set(point.x, point.y + height, point.z);
     return firstHit(from, to, city.colliders, 0) >= 1;
   }
 
-  // A cruiser the wanted level no longer pays for drives off, and is only taken off the board once the
-  // player cannot see it or it is past the distance it spawned at. Deleting it on the step the star
-  // dropped would empty the street in front of the player.
   function retireSurplus() {
     let active = 0;
     for (const car of cars) if (!car.retire) active += 1;
@@ -481,8 +415,7 @@ export function createPolice({ city, scene, player, combat }) {
     }
     let slot = 0;
     for (const car of cars) {
-      const materials = car.lightbar.materials;
-      const on = car.sirenOn && !car.retire;
+      const materials = car.lightbar.materials, on = car.sirenOn && !car.retire;
       const flash = Math.sin(clock * 9 + slot) > 0;
       materials[0].color.copy(on && flash ? RED_ON : RED_OFF);
       materials[1].color.copy(on && !flash ? BLUE_ON : BLUE_OFF);
@@ -495,33 +428,21 @@ export function createPolice({ city, scene, player, combat }) {
     }
   }
 
-  // A shot is a crime whether or not it lands, and a man on the ground is a bigger one. The segment is
-  // the one the pistol already measured against the walls, so an officer is only hit when nothing was
-  // in the way of the round that reached him.
   function handleShot(report) {
     api.heat += POLICE.heatShot;
     quiet = 0;
     if (report.hit) api.heat += POLICE.heatCrime;
     if (report.killed) api.heat += POLICE.heatKill;
 
-    const a = report.from;
-    const b = report.to;
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const dz = b.z - a.z;
+    const a = report.from, b = report.to, dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
     const span = dx * dx + dy * dy + dz * dz;
     if (span > 1e-6) {
-      let struck = null;
-      let nearest = Infinity;
+      let struck = null, nearest = Infinity;
       for (const officer of officers) {
         if (officer.down) continue;
-        const px = officer.position.x - a.x;
-        const py = officer.position.y + CHEST - a.y;
-        const pz = officer.position.z - a.z;
-        const t = Math.max(0, Math.min(1, (px * dx + py * dy + pz * dz) / span));
-        const cx = px - dx * t;
-        const cy = py - dy * t;
-        const cz = pz - dz * t;
+        const px = officer.position.x - a.x, py = officer.position.y + CHEST - a.y, pz = officer.position.z - a.z;
+        const t = Math.max(0, Math.min(1, (px * dx + py * dy + pz * dz) / span)), cx = px - dx * t;
+        const cy = py - dy * t, cz = pz - dz * t;
         if (Math.sqrt(cx * cx + cy * cy + cz * cz) > OFFICER_RADIUS) continue;
         const along = t * Math.sqrt(span);
         if (along < nearest) {
@@ -593,7 +514,6 @@ export function createPolice({ city, scene, player, combat }) {
         quiet += dt;
         api.escape = Math.max(0, api.escape - dt);
         if (quiet > POLICE.decayDelay) api.heat = Math.max(0, api.heat - POLICE.decayRate * dt);
-        // Out of sight long enough and the search is called off: the street is the player's again.
         if (api.escape <= 0) callOff();
       }
     } else {
@@ -609,8 +529,6 @@ export function createPolice({ city, scene, player, combat }) {
     }
     retireSurplus();
 
-    // Two stars pay for a crew; below that the men on foot are surplus too, and they leave the same way
-    // the cruisers do — once the player cannot see them.
     const crewPaid = api.stars >= 2;
     for (const officer of officers) if (!officer.down) officer.retire = !crewPaid;
 
