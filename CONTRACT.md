@@ -349,7 +349,9 @@ Returns:
 - `addHeat(n)` is what everything else calls: `POLICE.heatCrime` for a crime, `POLICE.heatShot` a shot,
   `POLICE.heatKill` a kill.
 - `clear()` sets heat, stars, escape and shots to 0 and sends the cars away: death, respawn, mission end.
-- `onDrop(fn)` registers `fn()` for when the wanted level reaches 0. One callback.
+- `onDrop(fn)` registers `fn(x, z)`, called with the spot where an officer falls. One callback; the game
+  points it at `combat.dropAmmo`, which is how a dead officer's rounds end up on the ground. It is a
+  method, not a property: call it, do not assign over it.
 
 Reads: `POLICE`, `city.roads`, `city.surfaceAt`, `city.colliders`, `player.position`, `combat`,
 `firstHit`, `tintedBox`/`merge`, `PALETTE.sirenRed`/`sirenBlue`.
