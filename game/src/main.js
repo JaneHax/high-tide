@@ -87,7 +87,9 @@ void main(){
   float glow=pow(s,60.0)*0.6+pow(s,8.0)*0.14;
   gl_FragColor=vec4(colour+sunColour*(disc*1.4+glow),1.0);
 }`}));
-sky.frustumCulled=false;sky.renderOrder=-1;scene.add(sky);
+sky.frustumCulled=false;
+sky.renderOrder=-1;
+scene.add(sky);
 scene.add(new THREE.HemisphereLight(PALETTE.skyCool,PALETTE.wallTan,WORLD.ambient));
 const city=buildPuertoSol(seed);
 scene.add(city.group);
@@ -147,7 +149,8 @@ if(saved){
   vehicles.setBoost(missions.state.level);
   if(saved.stored)garage.stored=saved.stored;
   if(saved.raceBest)garage.raceBest=Number(saved.raceBest)||0;
-  savedCash=missions.state.cash;savedRep=missions.state.rep;
+  savedCash=missions.state.cash;
+  savedRep=missions.state.rep;
 }
 const finished=Boolean(saved&&saved.done===true);
 hud.mode=finished?'complete':manual?'play':'title';
@@ -183,7 +186,7 @@ function currentInteract(){
     const job=missions.jobs[missions.state.job];
     if(d<4&&job){
       if(job.type==='walk')return{label:'Talk to the contact',run:()=>hud.toast(job.text)};
-      if(job.type==='drive')return{label:'This job needs a car',run:()=>hud.toast('Smuggler\'s Run only counts behind the wheel.')};
+      if(job.type==='drive')return{label:'This job needs a car',run:()=>hud.toast("Smuggler's Run only counts behind the wheel.")};
       if(job.type==='boat')return{label:'This job needs a boat',run:()=>hud.toast('Take a boat from the pier.')};
     }
   }
@@ -245,7 +248,8 @@ function step(dt=WORLD.step){
   const it=currentInteract();
   hud.setPrompt(it?it.label:null);
   if(missions.state.cash>savedCash||missions.state.rep>savedRep){
-    savedCash=missions.state.cash;savedRep=missions.state.rep;
+    savedCash=missions.state.cash;
+    savedRep=missions.state.rep;
     saveProgress();
   }
   if(missions.state.done&&hud.mode==='play'){hud.mode='complete';saveProgress();}
@@ -260,7 +264,8 @@ function render(){
 let accumulator=0,frameDt=0,last=performance.now();
 function frame(now){
   const dt=Math.max(0,(now-last)/1000);
-  last=now;frameDt=dt;
+  last=now;
+  frameDt=dt;
   settle=Math.max(0,settle-dt);
   if(settle<=0&&input.wasPressed('Escape')){
     if(hud.mode==='play'||hud.mode==='dead')pause();

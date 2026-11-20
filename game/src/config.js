@@ -1,5 +1,6 @@
-// High Tide tuning: one table per system. Golden hour now: sun higher and
-// warmer than the old dusk, so Puerto Sol reads sun-soaked on the cover.
+// Every tuning number in HIGH TIDE, grouped by the system that owns it.
+// The city sits in golden hour now: the sun is higher and warmer than the
+// old dusk, so Puerto Sol reads sun-soaked on the cover shot.
 export const WORLD={boundary:460,gravity:22,step:1/60,fog:{near:100,far:560},sunDistance:260,sunElevation:0.62,sunAzimuth:2.1,sunIntensity:2.9,ambient:0.62,shadowExtent:140};
 export const CITY={blockSize:52,roadWidth:14,gridX:8,gridZ:8,sidewalkWidth:3.2,lotInset:2.5,alleyChance:0.22,parkChance:0.12,propChance:0.3,lightSpacing:26,seawallHeight:3.4,dockLength:36,dockWidth:9,seabed:-3.2,kerbHeight:0.2,promenadeWidth:14,promenadeHeight:0.35,pierHeight:0.75,beachWidth:22};
 export const PLAYER={walkSpeed:2.6,runSpeed:6.4,acceleration:18,deceleration:24,jumpSpeed:7.2,turnRate:12,radius:0.42,height:1.8,stepHeight:0.45};

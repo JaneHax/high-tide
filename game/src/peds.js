@@ -1,5 +1,5 @@
-// The crowd on the sidewalks. A walker knows one thing: the kerb ring of his
-// block and the road he may step across at a corner.
+// The crowd on the sidewalks. A walker knows one thing: the kerb ring of
+// his block, and the road he may step across at a corner.
 import {Mesh,MeshLambertMaterial,Vector3} from 'three';
 import {CITY,PALETTE,PEDS} from './config.js';
 import {createRandom} from './random.js';
@@ -30,7 +30,8 @@ function ringS(b,x,z){
 }
 function nextCorner(s,dir){
   if(dir>0){const k=Math.floor(s/EDGE+1e-9);return Math.min(PERIMETER,(k+1)*EDGE);}
-  const k=Math.ceil(s/EDGE-1e-9);return Math.max(0,(k-1)*EDGE);
+  const k=Math.ceil(s/EDGE-1e-9);
+  return Math.max(0,(k-1)*EDGE);
 }
 function ringHeading(b,s,dir){
   const e=Math.min(3,Math.floor(norm(s)/EDGE)),d=EDGE_DIR[e];
@@ -39,15 +40,21 @@ function ringHeading(b,s,dir){
 const centreKey=(x,z)=>`${Math.round(x*10)}:${Math.round(z*10)}`;
 function shell(skin,shirt,trousers,hair){
   return merge([
-    tintedBox(0.44,0.5,0.27,shirt,0,HIP+0.27,0),tintedBox(0.52,0.14,0.29,shirt,0,HIP+0.5,0),
+    tintedBox(0.44,0.5,0.27,shirt,0,HIP+0.27,0),
+    tintedBox(0.52,0.14,0.29,shirt,0,HIP+0.5,0),
     tintedBox(0.46,0.1,0.28,trousers,0,HIP+0.02,0),
-    tintedBox(0.15,0.34,0.17,shirt,-0.31,HIP+0.33,0),tintedBox(0.15,0.34,0.17,shirt,0.31,HIP+0.33,0),
-    tintedBox(0.12,0.28,0.13,skin,-0.31,HIP+0.02,0),tintedBox(0.12,0.28,0.13,skin,0.31,HIP+0.02,0),
-    tintedBox(0.24,0.26,0.24,skin,0,HIP+0.74,0),tintedBox(0.26,0.09,0.26,hair,0,HIP+0.9,0),
+    tintedBox(0.15,0.34,0.17,shirt,-0.31,HIP+0.33,0),
+    tintedBox(0.15,0.34,0.17,shirt,0.31,HIP+0.33,0),
+    tintedBox(0.12,0.28,0.13,skin,-0.31,HIP+0.02,0),
+    tintedBox(0.12,0.28,0.13,skin,0.31,HIP+0.02,0),
+    tintedBox(0.24,0.26,0.24,skin,0,HIP+0.74,0),
+    tintedBox(0.26,0.09,0.26,hair,0,HIP+0.9,0),
     tintedBox(0.2,0.05,0.03,PALETTE.asphalt,0,HIP+0.76,-0.12)]);
 }
 function legG(trousers,hair){
-  return merge([tintedBox(0.17,0.72,0.2,trousers,0,-0.36,0),tintedBox(0.19,0.14,0.3,hair,0,-0.79,-0.05)]);
+  return merge([
+    tintedBox(0.17,0.72,0.2,trousers,0,-0.36,0),
+    tintedBox(0.19,0.14,0.3,hair,0,-0.79,-0.05)]);
 }
 export function createPeds({city,scene,seed,player}){
   const rng=createRandom(seed),blocks=city.blocks,byCentre=new Map();
@@ -60,7 +67,8 @@ export function createPeds({city,scene,seed,player}){
   const nearestRing=(b,x,z)=>{const s=ringS(b,x,z),p=ringPoint(b,s);return{x:p.x,z:p.z,s};};
   const blockDist=(b,x,z)=>{const p=ringPoint(b,ringS(b,x,z));return Math.hypot(p.x-x,p.z-z);};
   function nearBlocks(){
-    const out=[];let best=null;
+    const out=[];
+    let best=null;
     for(const b of blocks){
       const d=blockDist(b,player.position.x,player.position.z);
       if(d<=PEDS.respawnDistance*0.9)out.push({block:b,d});
@@ -86,13 +94,15 @@ export function createPeds({city,scene,seed,player}){
       const s=rng.range(0,PERIMETER),p=ringPoint(block,s);
       if(Math.hypot(p.x-player.position.x,p.z-player.position.z)>PEDS.respawnDistance*0.85)continue;
       if(crowded(p.x,p.z))continue;
-      reset(ped,block,s);return;
+      reset(ped,block,s);
+      return;
     }
     const spot=nearestRing(block,player.position.x,player.position.z);
     for(let step=1;step<48;step++){
       const s=spot.s+step*PEDS.radius*3,p=ringPoint(block,s);
       if(crowded(p.x,p.z))continue;
-      reset(ped,block,s);return;
+      reset(ped,block,s);
+      return;
     }
     reset(ped,block,spot.s);
   }
@@ -125,33 +135,45 @@ export function createPeds({city,scene,seed,player}){
       if(ped.dir<0&&s<=1e-9)s=PERIMETER;
       const corner=nextCorner(s,ped.dir),gap=Math.abs(corner-s);
       if(left<gap){s+=ped.dir*left;break;}
-      s=corner;left-=gap;
+      s=corner;
+      left-=gap;
       const k=Math.round(norm(s)/EDGE)%4;
       if(ped.crossCooldown<=0&&rng.chance(PEDS.crossChance)&&beginCross(ped,k))return;
       s=norm(s);
     }
     ped.s=norm(s);
     const p=ringPoint(ped.block,ped.s),c=slideOut(p.x,p.z);
-    ped.position.x=c.x;ped.position.z=c.z;ped.heading=ringHeading(ped.block,ped.s,ped.dir);
+    ped.position.x=c.x;
+    ped.position.z=c.z;
+    ped.heading=ringHeading(ped.block,ped.s,ped.dir);
   }
   function walkCross(ped,dt){
     const dx=ped.crossX-ped.position.x,dz=ped.crossZ-ped.position.z,d=Math.hypot(dx,dz);
     if(d<1e-3){arriveCross(ped);return;}
     const step=Math.min(d,PEDS.walkSpeed*dt),c=slideOut(ped.position.x+(dx/d)*step,ped.position.z+(dz/d)*step);
-    ped.position.x=c.x;ped.position.z=c.z;ped.heading=Math.atan2(-dx,-dz);
+    ped.position.x=c.x;
+    ped.position.z=c.z;
+    ped.heading=Math.atan2(-dx,-dz);
     if(Math.hypot(ped.crossX-c.x,ped.crossZ-c.z)<1e-3)arriveCross(ped);
   }
   function runFrom(ped,dt){
     let dx=ped.position.x-ped.alarmX,dz=ped.position.z-ped.alarmZ,d=Math.hypot(dx,dz);
     if(d<0.3){dx=ped.fleeX;dz=ped.fleeZ;d=1;}
     const step=PEDS.fleeSpeed*dt,c=slideOut(ped.position.x+(dx/d)*step,ped.position.z+(dz/d)*step);
-    ped.position.x=c.x;ped.position.z=c.z;ped.heading=Math.atan2(-dx,-dz);
+    ped.position.x=c.x;
+    ped.position.z=c.z;
+    ped.heading=Math.atan2(-dx,-dz);
   }
   function returnToBeat(ped,dt){
     const spot=nearestRing(ped.block,ped.position.x,ped.position.z),dx=spot.x-ped.position.x,dz=spot.z-ped.position.z,d=Math.hypot(dx,dz);
-    if(d<0.3){ped.mode='ring';ped.s=spot.s;ped.position.x=spot.x;ped.position.z=spot.z;ped.heading=ringHeading(ped.block,ped.s,ped.dir);return;}
+    if(d<0.3){
+      ped.mode='ring';ped.s=spot.s;ped.position.x=spot.x;ped.position.z=spot.z;ped.heading=ringHeading(ped.block,ped.s,ped.dir);
+      return;
+    }
     const step=Math.min(d,PEDS.walkSpeed*dt),c=slideOut(ped.position.x+(dx/d)*step,ped.position.z+(dz/d)*step);
-    ped.position.x=c.x;ped.position.z=c.z;ped.heading=Math.atan2(-dx,-dz);
+    ped.position.x=c.x;
+    ped.position.z=c.z;
+    ped.heading=Math.atan2(-dx,-dz);
   }
   function scare(x,z,radius){
     for(const ped of list){
@@ -181,12 +203,14 @@ export function createPeds({city,scene,seed,player}){
     ped.mesh.position.copy(ped.position);
     if(ped.state==='down'){
       ped.mesh.position.y+=0.2;ped.mesh.rotation.set(-Math.PI/2,ped.heading,0);
-      ped.legLeft.rotation.x=0;ped.legRight.rotation.x=0;return;
+      ped.legLeft.rotation.x=0;ped.legRight.rotation.x=0;
+      return;
     }
     ped.mesh.rotation.set(0,ped.heading,0);
     ped.phase=(ped.phase+(ped.state==='flee'?PEDS.fleeSpeed:PEDS.walkSpeed)*2.6*dt)%(Math.PI*2);
     const sw=Math.sin(ped.phase)*0.5;
-    ped.legLeft.rotation.x=sw;ped.legRight.rotation.x=-sw;
+    ped.legLeft.rotation.x=sw;
+    ped.legRight.rotation.x=-sw;
   }
   function update(dt,cars,policeCars){
     if(!(dt>0))return;
@@ -223,12 +247,18 @@ export function createPeds({city,scene,seed,player}){
   }
   for(let i=0;i<PEDS.count;i++){
     const v=rng.pick(variants),mesh=new Mesh(v.shell,MATERIAL);
-    mesh.rotation.order='YXZ';mesh.castShadow=true;
+    mesh.rotation.order='YXZ';
+    mesh.castShadow=true;
     const legL=new Mesh(v.leg,MATERIAL),legR=new Mesh(v.leg,MATERIAL);
-    legL.position.set(-0.13,HIP,0);legR.position.set(0.13,HIP,0);
-    mesh.add(legL);mesh.add(legR);scene.add(mesh);
+    legL.position.set(-0.13,HIP,0);
+    legR.position.set(0.13,HIP,0);
+    mesh.add(legL);
+    mesh.add(legR);
+    scene.add(mesh);
     const ped={position:new Vector3(),heading:0,state:'walk',health:100,mesh,legLeft:legL,legRight:legR,block:blocks[0],s:0,dir:1,mode:'ring',timer:0,flee:0,alarmX:0,alarmZ:0,fleeX:0,fleeZ:0,crossX:0,crossZ:0,crossBlock:null,crossCooldown:0,phase:rng.range(0,Math.PI*2)};
-    recycle(ped);place(ped,0);list.push(ped);
+    recycle(ped);
+    place(ped,0);
+    list.push(ped);
   }
   return{list,update,alarm(x,z){scare(x,z,PEDS.alarmRadius);},onRunOver(fn){runOver=fn;}};
 }

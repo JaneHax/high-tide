@@ -1,18 +1,23 @@
-// Keyboard and mouse with pointer lock. A press is reported until the frame
-// ends and never twice. E and Enter are real now: E is context interact,
-// Enter starts the game from the title card and confirms on cards.
+// Keyboard and mouse behind pointer lock. A press is reported until the
+// frame ends, and never twice. E is context interact, Enter starts the game
+// from the title card and confirms on cards.
 import {CAMERA} from './config.js';
 const TRACKED=new Set(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','Space','KeyF','KeyE','KeyR','Escape','Enter','Digit1','Digit2','Digit3','KeyQ']);
 export function createInput(canvas){
   const down=new Set(),pressed=new Set(),mouse={left:false,dx:0,dy:0},gestures=[];
   let gestured=false;
-  function gesture(){if(gestured)return;gestured=true;for(const fn of gestures)fn();}
+  function gesture(){
+    if(gestured)return;
+    gestured=true;
+    for(const fn of gestures)fn();
+  }
   window.addEventListener('keydown',e=>{
     gesture();
     if(!TRACKED.has(e.code))return;
     if(e.code!=='Escape')e.preventDefault();
     if(e.repeat)return;
-    down.add(e.code);pressed.add(e.code);
+    down.add(e.code);
+    pressed.add(e.code);
   });
   window.addEventListener('keyup',e=>{if(TRACKED.has(e.code))down.delete(e.code);});
   window.addEventListener('blur',()=>{down.clear();mouse.left=false;});

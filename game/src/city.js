@@ -1,7 +1,7 @@
-// Puerto Sol, the static harbour city. One seed lays one city from the seeded
-// stream, so a screenshot and a bug are both repeatable, and every height is
-// answered by surfaceAt because the player, the cars and a mission marker must
-// agree on where the ground is.
+// Puerto Sol, the static harbour city. One seed lays one city from the
+// seeded stream, so a screenshot and a bug are both repeatable, and every
+// height is answered by surfaceAt — the player, the cars and a mission
+// marker must all agree on where the ground is.
 import {BoxGeometry,BufferGeometry,Color,ConeGeometry,Float32BufferAttribute,Group,InstancedMesh,Mesh,MeshBasicMaterial,MeshLambertMaterial,Object3D,PlaneGeometry,ShaderMaterial} from 'three';
 import {CITY,PALETTE,WORLD} from './config.js';
 import {createRandom} from './random.js';
@@ -36,11 +36,13 @@ function surfaceAt(x,z){
 function quad(a,b,c,d,colour){
   const g=new BufferGeometry();
   g.setAttribute('position',new Float32BufferAttribute([...a,...b,...c,...a,...c,...d],3));
-  g.computeVertexNormals();paint(g,colour);
+  g.computeVertexNormals();
+  paint(g,colour);
   return g;
 }
 function runsBetween(from,to,cuts,clear){
-  const out=[];let at=from;
+  const out=[];
+  let at=from;
   for(const cut of cuts){
     const s=cut-clear,e=cut+clear;
     if(e<=at)continue;
@@ -94,7 +96,8 @@ export function buildPuertoSol(seed){
           if(windowMatrices.length>11000)return;
           const along=(c-(cols-1)/2)*2.7;
           dummy.position.set(b.x+f.ox+(f.alongZ?0:along),y,b.z+f.oz+(f.alongZ?along:0));
-          dummy.rotation.set(0,f.rot,0);dummy.updateMatrix();
+          dummy.rotation.set(0,f.rot,0);
+          dummy.updateMatrix();
           windowMatrices.push(dummy.matrix.clone());
           const roll=rng.next(),col=roll<0.3?litColour:roll<0.55?dimColour:darkColour;
           windowColours.push(col.clone().multiplyScalar(0.85+rng.next()*0.3));
@@ -270,7 +273,9 @@ export function buildPuertoSol(seed){
   const boundary=WORLD.boundary,rock=new Color(HILL_COLOUR),farRock=new Color(HILL_COLOUR).lerp(new Color(PALETTE.fog),0.55);
   const ridge=(x,z,radius,height,colour)=>{
     const cone=new ConeGeometry(radius,height,7);
-    paint(cone,colour);cone.translate(x,height/2-1,z);hillParts.push(cone);
+    paint(cone,colour);
+    cone.translate(x,height/2-1,z);
+    hillParts.push(cone);
   };
   for(let i=0;i<15;i++){
     const x=-boundary-40+(i/14)*(boundary*2+80);
@@ -297,9 +302,13 @@ export function buildPuertoSol(seed){
   ground.rotateX(-Math.PI/2);ground.translate(0,-0.04,275);paint(ground,SCRUB_COLOUR);
   add(ground,'ground');
   add(merge([tintedBox(EDGE_X*2,0.2,EDGE_Z*2,PALETTE.asphalt,0,-0.1,0)]),'asphalt');
-  add(merge(pavingParts),'paving');add(merge(markingParts),'markings');
-  add(merge(buildingParts),'buildings');add(merge(waterfrontParts),'waterfront');
-  add(merge(sandParts),'sand');add(merge(propParts),'props');add(merge(hillParts),'hills');
+  add(merge(pavingParts),'paving');
+  add(merge(markingParts),'markings');
+  add(merge(buildingParts),'buildings');
+  add(merge(waterfrontParts),'waterfront');
+  add(merge(sandParts),'sand');
+  add(merge(propParts),'props');
+  add(merge(hillParts),'hills');
   const windowGeometry=new BoxGeometry(1.1,1.5,0.16);
   const windowMaterial=new MeshBasicMaterial({color:0xffffff});
   instance(windowGeometry,windowMaterial,windowMatrices.length,'windows',mesh=>{
@@ -317,8 +326,10 @@ export function buildPuertoSol(seed){
   instance(palmGeometry,palmMaterial,palmSpots.length,'palms',mesh=>{
     palmSpots.forEach((spot,i)=>{
       dummy.position.set(spot.x,surfaceAt(spot.x,spot.z),spot.z);
-      dummy.rotation.set(0,spot.yaw,0);dummy.scale.set(spot.scale,spot.scale,spot.scale);
-      dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);
+      dummy.rotation.set(0,spot.yaw,0);
+      dummy.scale.set(spot.scale,spot.scale,spot.scale);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i,dummy.matrix);
     });
   });
   const poleParts=[tintedBox(0.16,5.6,0.16,'#3b3a40',0,2.8,0),tintedBox(1.6,0.12,0.14,'#3b3a40',0.75,5.56,0)];
@@ -328,8 +339,10 @@ export function buildPuertoSol(seed){
   const headMaterial=new MeshBasicMaterial({color:PALETTE.sun});
   const fillLamp=mesh=>lampSpots.forEach((spot,i)=>{
     dummy.position.set(spot.x,surfaceAt(spot.x,spot.z),spot.z);
-    dummy.rotation.set(0,spot.yaw,0);dummy.scale.set(1,1,1);
-    dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);
+    dummy.rotation.set(0,spot.yaw,0);
+    dummy.scale.set(1,1,1);
+    dummy.updateMatrix();
+    mesh.setMatrixAt(i,dummy.matrix);
   });
   instance(lampGeometry,lampMaterial,lampSpots.length,'lamps',fillLamp);
   instance(headGeometry,headMaterial,lampSpots.length,'lampHeads',fillLamp);
@@ -374,7 +387,8 @@ void main(){
   gl_FragColor=vec4(mix(colour,fogColour,fog),1.0);
 }`});
   const seaMesh=new Mesh(seaGeometry,seaMaterial);
-  seaMesh.name='sea';group.add(seaMesh);
+  seaMesh.name='sea';
+  group.add(seaMesh);
   const spawnPoints=[{x:8,z:-278,yaw:Math.PI,kind:'player',area:'promenade'}];
   const streetBlocks=blocks.filter(b=>b.kind==='built'||b.kind==='dock');
   for(let k=0;k<3;k++){

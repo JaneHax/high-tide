@@ -4,12 +4,12 @@
 [![rank](https://make.fun/badge/gta6-01/JaneHax/high-tide/rank.svg)](https://make.fun/bounty/gta6-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
 [![reward](https://make.fun/badge/gta6-01/JaneHax/high-tide/reward.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
 
-HIGH TIDE is an open-world crime game set in Puerto Sol, a harbour city at golden hour. It is played in a
-desktop browser, in third person, with a keyboard and a mouse. You are Rico: you walk the waterfront and
-the city grid, you take cars that are not yours, you keep one in a garage, you sail boats out past the
-breakwater, and you work ten jobs for a man called Sombra. The last is a meeting at the breakwater, where
-Sombra is waiting with a boat. The game has no build step and makes no network request at runtime; the
-page, every module and the one vendored copy of three.js are files on disk.
+HIGH TIDE is an open-world crime game set in Puerto Sol, a harbour city at golden hour. It runs in a
+desktop browser, in third person, with a keyboard and a mouse. You are Rico: you walk the waterfront
+and the city grid, you take cars that are not yours, you keep one in a garage, you sail boats out past
+the breakwater, and you work ten jobs for a man called Sombra. The last job is a meeting at the
+breakwater, where Sombra is waiting with a boat. The game has no build step and makes no network
+request at runtime; the page, every module and the one vendored copy of three.js are files on disk.
 
 ## What is in it
 

@@ -1,4 +1,5 @@
-// Death and respawn, kept out of the loop so the rule runs without a browser.
+// Death and respawn, kept out of the frame loop so the rule runs without
+// a browser. Dying drops Rico out of whatever he was driving or sailing.
 import {COMBAT,WORLD} from './config.js';
 export function createLifecycle({player,vehicles,police,combat,spawn,followCamera,boats}){
   const spawnY=player.position.y;

@@ -1,6 +1,6 @@
 // Four weapons, one barrel: pistol, shotgun, SMG and rifle, switched with
-// 1/2/3 or cycled with Q. Rep unlocks the heavier ones. A round stops at the
-// first wall, found with geometry.firstHit against city.colliders.
+// 1/2/3 or cycled with Q. REP unlocks the heavier ones. A round stops at the
+// first wall, found with geometry.firstHit against the city colliders.
 import {BoxGeometry,Mesh,MeshBasicMaterial,MeshLambertMaterial,Vector3} from 'three';
 import {COMBAT,PALETTE,WEAPONS,WEAPON_ORDER} from './config.js';
 import {firstHit,merge,tintedBox} from './geometry.js';
@@ -15,7 +15,9 @@ const EFFECT_GEOMETRY=new BoxGeometry(1,1,1);
 function makePart(scene,colour,seconds){
   const material=new MeshBasicMaterial({color:colour,transparent:true,opacity:1,depthWrite:false});
   const mesh=new Mesh(EFFECT_GEOMETRY,material);
-  mesh.visible=false;mesh.frustumCulled=false;scene.add(mesh);
+  mesh.visible=false;
+  mesh.frustumCulled=false;
+  scene.add(mesh);
   return{mesh,material,timer:0,seconds};
 }
 export function createCombat({scene,player,camera,peds,city}){
@@ -29,7 +31,10 @@ export function createCombat({scene,player,camera,peds,city}){
     noise^=noise<<13;noise>>>=0;noise^=noise>>>17;noise^=noise<<5;noise>>>=0;
     return(noise/4294967296)*2-1;
   }
-  for(let i=0;i<EFFECTS;i++)effects.push({flash:makePart(scene,PALETTE.sun,FLASH_SECONDS),tracer:makePart(scene,PALETTE.roadLineYellow,TRACER_SECONDS),spark:makePart(scene,PALETTE.sun,SPARK_SECONDS)});
+  for(let i=0;i<EFFECTS;i++)effects.push({
+    flash:makePart(scene,PALETTE.sun,FLASH_SECONDS),
+    tracer:makePart(scene,PALETTE.roadLineYellow,TRACER_SECONDS),
+    spark:makePart(scene,PALETTE.sun,SPARK_SECONDS)});
   const from=new Vector3(),to=new Vector3(),end=new Vector3(),dir=new Vector3(),right=new Vector3(),lift=new Vector3(),body=new Vector3(),muzzle=new Vector3();
   const weapon=()=>WEAPONS[state.weapon];
   function syncMags(){mags[state.weapon].ammo=state.ammo;mags[state.weapon].reserve=state.reserve;}
@@ -37,8 +42,7 @@ export function createCombat({scene,player,camera,peds,city}){
     if(!WEAPONS[name]||!state.unlocked[name]||state.dead)return false;
     if(name===state.weapon)return true;
     syncMags();
-    state.weapon=name;
-    state.ammo=mags[name].ammo;state.reserve=mags[name].reserve;
+    state.weapon=name;state.ammo=mags[name].ammo;state.reserve=mags[name].reserve;
     return true;
   }
   function cycleWeapon(){
@@ -66,19 +70,27 @@ export function createCombat({scene,player,camera,peds,city}){
     part.material.opacity=part.timer/part.seconds;
   }
   function show(part,at,scale){
-    part.mesh.position.copy(at);part.mesh.scale.setScalar(scale);
-    part.mesh.visible=true;part.material.opacity=1;part.timer=part.seconds;
+    part.mesh.position.copy(at);
+    part.mesh.scale.setScalar(scale);
+    part.mesh.visible=true;
+    part.material.opacity=1;
+    part.timer=part.seconds;
   }
   function flashAndTrace(start,finish,direction){
-    const e=effects[effectCursor%EFFECTS];effectCursor+=1;
+    const e=effects[effectCursor%EFFECTS];
+    effectCursor+=1;
     muzzle.copy(start).addScaledVector(direction,MUZZLE);
     show(e.flash,muzzle,0.17+Math.abs(scatter())*0.05);
     const span=Math.max(0.05,muzzle.distanceTo(finish));
     e.tracer.mesh.position.copy(muzzle).add(finish).multiplyScalar(0.5);
-    e.tracer.mesh.lookAt(finish);e.tracer.mesh.scale.set(0.035,0.035,span);
-    e.tracer.mesh.visible=true;e.tracer.material.opacity=1;e.tracer.timer=e.tracer.seconds;
+    e.tracer.mesh.lookAt(finish);
+    e.tracer.mesh.scale.set(0.035,0.035,span);
+    e.tracer.mesh.visible=true;
+    e.tracer.material.opacity=1;
+    e.tracer.timer=e.tracer.seconds;
     show(e.spark,finish,0.18);
   }
+  // The nearest living pedestrian inside the shot cone, measured along dir.
   function targetInCone(reach){
     let target=null,nearest=Infinity;
     for(const ped of peds.list){
@@ -96,7 +108,8 @@ export function createCombat({scene,player,camera,peds,city}){
     if(state.dead||player.state==='driving'||player.state==='sailing')return false;
     const w=weapon();
     if(state.ammo<=0||cooldown>0)return false;
-    state.ammo-=1;cooldown=w.fireInterval;
+    state.ammo-=1;
+    cooldown=w.fireInterval;
     dir.set(0,0,-1).applyQuaternion(camera.quaternion);
     right.crossVectors(dir,UP).normalize();
     lift.crossVectors(right,dir).normalize();
@@ -106,8 +119,9 @@ export function createCombat({scene,player,camera,peds,city}){
       const d=dir.clone().addScaledVector(right,scatter()*w.spread).addScaledVector(lift,scatter()*w.spread).normalize();
       to.copy(from).addScaledVector(d,w.range);
       const reach=w.range*firstHit(from,to,city.colliders,0);
-      const shot=targetInCone.call(null,reach);
-      // targetInCone reads the shared dir/from, so point it at this pellet first
+      // The cone test reads the shared dir/from, so aim it at this pellet.
+      dir.copy(d);
+      const shot=targetInCone(reach);
       end.copy(from).addScaledVector(d,reach);
       if(shot.target){
         hit=true;
@@ -118,8 +132,6 @@ export function createCombat({scene,player,camera,peds,city}){
       flashAndTrace(from,end,d);
       if(p===0){firstEnd=end.clone();firstFrom=muzzle.clone();}
     }
-    // Re-aim the shared vectors for the cone test above: pellets already fired
-    // with their own clones; the report carries the first pellet's line.
     peds.alarm(player.position.x,player.position.z);
     const report={hit,killed,damage:w.damage,from:firstFrom||muzzle.clone(),to:firstEnd||end.clone()};
     for(const fn of listeners)fn(report);
@@ -129,7 +141,9 @@ export function createCombat({scene,player,camera,peds,city}){
     if(state.dead)return 0;
     const w=weapon(),load=Math.min(w.magSize-state.ammo,state.reserve);
     if(load<=0)return 0;
-    state.ammo+=load;state.reserve-=load;syncMags();
+    state.ammo+=load;
+    state.reserve-=load;
+    syncMags();
     return load;
   }
   function damage(amount){
@@ -148,7 +162,8 @@ export function createCombat({scene,player,camera,peds,city}){
     const mesh=new Mesh(AMMO_GEOMETRY,AMMO_MATERIAL);
     mesh.castShadow=true;
     const ground=city.surfaceAt(x,z);
-    mesh.position.set(x,ground+PICKUP_RISE,z);scene.add(mesh);
+    mesh.position.set(x,ground+PICKUP_RISE,z);
+    scene.add(mesh);
     drops.push({x,z,ground,mesh,spin:0});
   }
   function update(dt){
@@ -156,12 +171,14 @@ export function createCombat({scene,player,camera,peds,city}){
     for(const e of effects){fade(e.flash,dt);fade(e.tracer,dt);fade(e.spark,dt);}
     for(let i=drops.length-1;i>=0;i--){
       const drop=drops[i];
-      drop.spin+=dt*2.2;drop.mesh.rotation.y=drop.spin;
+      drop.spin+=dt*2.2;
+      drop.mesh.rotation.y=drop.spin;
       drop.mesh.position.y=drop.ground+PICKUP_RISE+Math.sin(clock*3+drop.x)*0.07;
       const dx=player.position.x-drop.x,dz=player.position.z-drop.z;
       if(Math.hypot(dx,dz)>COMBAT.dropReach)continue;
       if(Math.abs(player.position.y-drop.ground)>1.6)continue;
-      state.reserve+=weapon().magSize;syncMags();
+      state.reserve+=weapon().magSize;
+      syncMags();
       removeDrop(i);
     }
   }

@@ -1,7 +1,7 @@
-// Ten jobs for Sombra, in five kinds: walk to the ring, hold E to rob a shop,
-// race three checkpoints in a car, outrun the law to a marker, drive a car to
-// the pier, and sail a boat out past the breakwater. Each paid job adds REP;
-// REP levels unlock weapons and faster cars.
+// Ten jobs for Sombra, in five kinds: walk to the ring, hold E to rob a
+// shop, race three checkpoints in a car, outrun the law to a marker, drive a
+// car to the pier, and sail a boat out past the breakwater. Each paid job
+// adds REP; REP levels unlock weapons and faster cars.
 import {CylinderGeometry,DoubleSide,Group,Mesh,MeshBasicMaterial,RingGeometry} from 'three';
 import {MISSIONS,PALETTE,REP} from './config.js';
 const STORY=[
@@ -17,19 +17,25 @@ const STORY=[
   {title:'The Breakwater',text:'Sombra waits at the breakwater, at the end of the pier where the water turns deep. He wants the last word, and he has brought a boat.',areas:['pier'],type:'walk'},
 ];
 const HOLD='The police are on you. The handover can wait until they lose interest.';
-const nearestOf=(list,v)=>{let best=list[0],gap=Math.abs(v-best);for(const e of list){const d=Math.abs(e-v);if(d<gap){gap=d;best=e;}}return best;};
+const nearestOf=(list,v)=>{
+  let best=list[0],gap=Math.abs(v-best);
+  for(const e of list){const d=Math.abs(e-v);if(d<gap){gap=d;best=e;}}
+  return best;
+};
 export function createMissions({city,scene,player,vehicles,police,hud,boats,combat}){
   const used=new Set();
   function takePoint(areas){
     for(const area of areas)for(let i=0;i<city.spawnPoints.length;i++){
       const p=city.spawnPoints[i];
       if(used.has(i)||p.kind!=='job'||p.area!==area)continue;
-      used.add(i);return p;
+      used.add(i);
+      return p;
     }
     for(let i=0;i<city.spawnPoints.length;i++){
       const p=city.spawnPoints[i];
       if(used.has(i)||p.kind!=='job')continue;
-      used.add(i);return p;
+      used.add(i);
+      return p;
     }
     return null;
   }
@@ -48,10 +54,13 @@ export function createMissions({city,scene,player,vehicles,police,hud,boats,comb
   const ringMat=new MeshBasicMaterial({color:PALETTE.wantedGold,transparent:true,opacity:0.85,depthWrite:false,side:DoubleSide});
   const colMat=new MeshBasicMaterial({color:PALETTE.accent,transparent:true,opacity:0.14,depthWrite:false,side:DoubleSide});
   const ring=new Mesh(new RingGeometry(MISSIONS.markerRadius*0.74,MISSIONS.markerRadius,44),ringMat);
-  ring.rotation.x=-Math.PI/2;ring.position.y=0.04;
+  ring.rotation.x=-Math.PI/2;
+  ring.position.y=0.04;
   const col=new Mesh(new CylinderGeometry(MISSIONS.markerRadius*0.74,MISSIONS.markerRadius,MISSIONS.markerHeight,32,1,true),colMat);
   col.position.y=MISSIONS.markerHeight/2;
-  marker.add(ring,col);marker.visible=false;scene.add(marker);
+  marker.add(ring,col);
+  marker.visible=false;
+  scene.add(marker);
   const toast=t=>{if(hud&&typeof hud.toast==='function')hud.toast(t);};
   const withdraw=t=>{if(hud&&typeof hud.withdraw==='function')hud.withdraw(t);};
   function levelFor(rep){
@@ -76,12 +85,19 @@ export function createMissions({city,scene,player,vehicles,police,hud,boats,comb
   function announce(){
     const job=jobs[state.job];
     if(!job||(state.title===job.title&&state.text===job.text))return;
-    state.title=job.title;state.text=job.text;
+    state.title=job.title;
+    state.text=job.text;
     toast(job.title);
   }
   function setMarker(x,y,z){
     state.marker={x,y,z};
-    marker.position.set(x,y,z);marker.visible=true;
+    marker.position.set(x,y,z);
+    marker.visible=true;
+  }
+  function raceCheckpoints(job){
+    const base=job.objective;
+    const pts=[[base.x+66,base.z],[base.x+66,base.z+66],[base.x,base.z+66]];
+    return pts.map(([x,z])=>({x:nearestOf(city.roads.zRoads,x),z:nearestOf(city.roads.xRoads,z)}));
   }
   function markObjective(){
     const job=jobs[state.job];
@@ -96,11 +112,6 @@ export function createMissions({city,scene,player,vehicles,police,hud,boats,comb
     const s=job.objective;
     setMarker(s.x,s.y,s.z);
   }
-  function raceCheckpoints(job){
-    const base=job.objective;
-    const pts=[[base.x+66,base.z],[base.x+66,base.z+66],[base.x,base.z+66]];
-    return pts.map(([x,z])=>({x:nearestOf(city.roads.zRoads,x),z:nearestOf(city.roads.xRoads,z)}));
-  }
   function payJob(i){
     if(paidFlags[i])return;
     paidFlags[i]=true;
@@ -114,20 +125,27 @@ export function createMissions({city,scene,player,vehicles,police,hud,boats,comb
     const job=jobs[state.job];
     if(job.type==='race')state.timer=MISSIONS.raceSeconds;
     if(job.type==='getaway'){state.timer=MISSIONS.getawaySeconds;police.addHeat(80);}
-    announce();markObjective();
+    announce();
+    markObjective();
   }
   function next(){
     if(state.active)payJob(state.job);
     state.marker=null;marker.visible=false;state.active=false;state.objective=0;state.timer=0;state.robHold=0;state.cp=0;
-    if(state.job>=jobs.length-1){state.done=true;state.paid=paidFlags[state.job];return;}
-    state.job+=1;state.paid=paidFlags[state.job];
+    if(state.job>=jobs.length-1){
+      state.done=true;state.paid=paidFlags[state.job];
+      return;
+    }
+    state.job+=1;
+    state.paid=paidFlags[state.job];
     start();
   }
   function completeObjective(){
     if(!state.active||!state.marker)return;
-    state.objective+=1;payJob(state.job);next();
+    state.objective+=1;
+    payJob(state.job);
+    next();
   }
-  function nearMarker(r= MISSIONS.reachRadius){
+  function nearMarker(r=MISSIONS.reachRadius){
     if(!state.marker)return false;
     const dx=player.position.x-state.marker.x,dz=player.position.z-state.marker.z;
     return Math.hypot(dx,dz)<=r&&Math.abs(player.position.y-state.marker.y)<=2.5;
@@ -136,7 +154,8 @@ export function createMissions({city,scene,player,vehicles,police,hud,boats,comb
     if(dt>0)clock+=dt;
     if(marker.visible){
       const pulse=0.5+0.5*Math.sin(clock*2.6);
-      ringMat.opacity=0.55+pulse*0.35;colMat.opacity=0.08+pulse*0.1;
+      ringMat.opacity=0.55+pulse*0.35;
+      colMat.opacity=0.08+pulse*0.1;
       ring.scale.setScalar(1+pulse*0.05);
     }
     if(police&&police.stars>0){
@@ -154,7 +173,9 @@ export function createMissions({city,scene,player,vehicles,police,hud,boats,comb
         toast(`Checkpoint ${state.cp} of 3.`);
       }
       if(state.timer<=0){
-        state.timer=MISSIONS.raceSeconds;state.cp=0;markObjective();
+        state.timer=MISSIONS.raceSeconds;
+        state.cp=0;
+        markObjective();
         toast('Too slow. The checkpoints are reset — go again.');
       }
       return;
@@ -163,7 +184,8 @@ export function createMissions({city,scene,player,vehicles,police,hud,boats,comb
       state.timer-=dt;
       if(nearMarker()){completeObjective();return;}
       if(state.timer<=0){
-        state.timer=MISSIONS.getawaySeconds;police.addHeat(80);
+        state.timer=MISSIONS.getawaySeconds;
+        police.addHeat(80);
         toast('They boxed you in. The clock resets — run it again.');
       }
       return;
@@ -175,7 +197,8 @@ export function createMissions({city,scene,player,vehicles,police,hud,boats,comb
           if(state.robHold>=MISSIONS.robSeconds){
             police.addHeat(80);
             toast('Till emptied. Run.');
-            completeObjective();return;
+            completeObjective();
+            return;
           }
         }else state.robHold=Math.max(0,state.robHold-dt*2);
       }else state.robHold=0;

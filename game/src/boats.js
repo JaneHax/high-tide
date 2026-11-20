@@ -1,6 +1,6 @@
 // Boats on the harbour. Two tied at the piers and one drifting off the
-// breakwater: F boards the nearest one like a car, W drives it, A/D steer it,
-// and it floats on the water the city already built.
+// breakwater: F boards the nearest one the way Rico takes a car, W drives it,
+// A and D steer it, and it floats on the water the city already built.
 import {Group,Mesh,MeshLambertMaterial,Vector3} from 'three';
 import {BOATS,PALETTE} from './config.js';
 import {merge,tintedBox} from './geometry.js';
@@ -20,7 +20,9 @@ export function createBoats({city,scene,player}){
   city.boatSpots.forEach((spot,i)=>{
     const body=new Group();
     const mesh=new Mesh(hull(colours[i%colours.length]),MATERIAL);
-    mesh.castShadow=true;body.add(mesh);scene.add(body);
+    mesh.castShadow=true;
+    body.add(mesh);
+    scene.add(body);
     list.push({
       position:new Vector3(spot.x,BOATS.floatY,spot.z),heading:i*1.3,speed:0,
       body,mesh,boarded:false,wake:0,
@@ -48,12 +50,14 @@ export function createBoats({city,scene,player}){
     if(!boarded)return null;
     const b=boarded;
     b.boarded=false;b.speed=0;boarded=null;
-    // Step Rico onto the nearest pier deck if he is beside one, else the beach.
+    // Step Rico onto the nearest pier deck when he is beside one, else the beach.
     const pier=city.piers.x.reduce((best,px)=>Math.abs(px-b.position.x)<Math.abs(best-b.position.x)?px:best,city.piers.x[0]);
     const onPier=Math.abs(b.position.x-pier)<=6&&b.position.z>=city.piers.endZ-2;
-    const x=onPier?pier:b.position.x,z=onPier?Math.max(b.position.z,city.piers.endZ+2):Math.min(b.position.z,-286);
+    const x=onPier?pier:b.position.x;
+    const z=onPier?Math.max(b.position.z,city.piers.endZ+2):Math.min(b.position.z,-286);
     player.position.set(x,city.surfaceAt(x,z),z);
-    player.velocity.set(0,0,0);player.state='idle';
+    player.velocity.set(0,0,0);
+    player.state='idle';
     return b;
   }
   function update(dt,input){
@@ -70,7 +74,8 @@ export function createBoats({city,scene,player}){
       boarded.position.z+=-Math.cos(boarded.heading)*boarded.speed*dt;
       boarded.position.x=Math.max(-540,Math.min(540,boarded.position.x));
       boarded.position.z=Math.max(-430,Math.min(-284,boarded.position.z));
-      player.position.copy(boarded.position);player.yaw=boarded.heading;
+      player.position.copy(boarded.position);
+      player.yaw=boarded.heading;
     }
     for(const b of list){
       b.position.y=BOATS.floatY+Math.sin(clock*1.1+b.position.x*0.05)*0.12;

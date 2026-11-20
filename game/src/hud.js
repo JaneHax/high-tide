@@ -1,6 +1,6 @@
 // The face of the game: panels, four cards, and every sound, synthesised
-// because the build has no assets and makes no request. The panel follows the
-// frame, not the fixed step, because main calls update once per paint.
+// because the build has no assets and makes no request. The panel follows
+// the frame, not the fixed step, because main calls update once per paint.
 import {Vector3} from 'three';
 import {CITY,COMBAT,HUD,PALETTE,REP} from './config.js';
 const STAR_COUNT=5,TOAST_SECONDS=4.5,STEP_DISTANCE=1.15,MAP_MARGIN=2,MAP_RIM=9,MAP_DOT=3;
@@ -83,7 +83,8 @@ function injectStyle(){
 export function createHud({missions,combat,police,vehicles,player,air,boats,garage}){
   injectStyle();
   const root=element('div','');
-  root.id='ht-hud';document.body.appendChild(root);
+  root.id='ht-hud';
+  document.body.appendChild(root);
   const jobPanel=element('section','ht-panel ht-job',root),jobTitle=element('h2','ht-job-title',jobPanel);
   const jobText=element('p','ht-job-text',jobPanel),jobMeta=element('p','ht-job-meta',jobPanel);
   const cashLine=element('span','ht-cash',jobMeta),stepLine=element('span','ht-step',jobMeta);
@@ -99,11 +100,13 @@ export function createHud({missions,combat,police,vehicles,player,air,boats,gara
   const healthFill=element('div','ht-health-fill',healthTrack);
   const ammoLine=element('div','ht-ammo',statusPanel),magValue=element('b','',ammoLine);
   const reserveValue=element('span','',ammoLine);
-  magValue.textContent='0';reserveValue.textContent=' / 0';
+  magValue.textContent='0';
+  reserveValue.textContent=' / 0';
   const weaponLine=element('div','ht-weapons',statusPanel);
   const mapWrap=element('div','ht-map-wrap',root),mapCanvas=element('canvas','ht-map',mapWrap);
   const dpr=Math.min(2,(typeof window!=='undefined'&&window.devicePixelRatio)||1);
-  mapCanvas.width=Math.round(HUD.minimapSize*dpr);mapCanvas.height=Math.round(HUD.minimapSize*dpr);
+  mapCanvas.width=Math.round(HUD.minimapSize*dpr);
+  mapCanvas.height=Math.round(HUD.minimapSize*dpr);
   const mapCtx=mapCanvas.getContext('2d'),mapScale=(HUD.minimapSize/2-MAP_MARGIN)/HUD.minimapRange;
   const forward=new Vector3();
   const speedo=element('div','ht-panel ht-speed',root),speedValue=element('span','ht-speed-value',speedo);
@@ -270,16 +273,23 @@ export function createHud({missions,combat,police,vehicles,player,air,boats,gara
     mapCtx.setTransform(dpr,0,0,dpr,0,0);
     mapCtx.clearRect(0,0,size,size);
     mapCtx.save();
-    mapCtx.beginPath();mapCtx.arc(centre,centre,centre-1,0,Math.PI*2);mapCtx.clip();
-    mapCtx.fillStyle='#141220';mapCtx.fillRect(0,0,size,size);
+    mapCtx.beginPath();
+    mapCtx.arc(centre,centre,centre-1,0,Math.PI*2);
+    mapCtx.clip();
+    mapCtx.fillStyle='#141220';
+    mapCtx.fillRect(0,0,size,size);
     mapCtx.save();
-    mapCtx.translate(centre,centre);mapCtx.rotate(heading);mapCtx.scale(mapScale,mapScale);mapCtx.translate(-px,-pz);
+    mapCtx.translate(centre,centre);
+    mapCtx.rotate(heading);
+    mapCtx.scale(mapScale,mapScale);
+    mapCtx.translate(-px,-pz);
     mapCtx.fillStyle='rgba(232,217,189,0.16)';
     for(let j=0;j<CITY.gridZ;j++)for(let i=0;i<CITY.gridX;i++){
       const x=-HALF_X+PITCH/2+i*PITCH,z=-HALF_Z+PITCH/2+j*PITCH;
       mapCtx.fillRect(x-CITY.blockSize/2,z-CITY.blockSize/2,CITY.blockSize,CITY.blockSize);
     }
-    mapCtx.strokeStyle='rgba(154,145,132,0.5)';mapCtx.lineWidth=CITY.roadWidth;
+    mapCtx.strokeStyle='rgba(154,145,132,0.5)';
+    mapCtx.lineWidth=CITY.roadWidth;
     mapCtx.beginPath();
     for(let i=0;i<=CITY.gridX;i++){const x=-HALF_X+i*PITCH;mapCtx.moveTo(x,-EDGE_Z);mapCtx.lineTo(x,EDGE_Z);}
     for(let j=0;j<=CITY.gridZ;j++){const z=-HALF_Z+j*PITCH;mapCtx.moveTo(-EDGE_X,z);mapCtx.lineTo(EDGE_X,z);}
@@ -291,24 +301,34 @@ export function createHud({missions,combat,police,vehicles,player,air,boats,gara
       const reach=Math.hypot(sx,sy),rim=centre-MAP_RIM;
       if(reach>rim){sx=(sx/reach)*rim;sy=(sy/reach)*rim;}
       mapCtx.fillStyle=colour;
-      mapCtx.beginPath();mapCtx.arc(centre+sx,centre+sy,r,0,Math.PI*2);mapCtx.fill();
+      mapCtx.beginPath();
+      mapCtx.arc(centre+sx,centre+sy,r,0,Math.PI*2);
+      mapCtx.fill();
     };
     const marker=missions.state.marker;
     if(marker){
       const pulse=0.5+0.5*Math.sin(clock*3);
       mapCtx.globalAlpha=0.35+pulse*0.4;
       plot(marker.x,marker.z,PALETTE.wantedGold,5+pulse*3);
-      mapCtx.globalAlpha=1;plot(marker.x,marker.z,PALETTE.wantedGold,MAP_DOT);
+      mapCtx.globalAlpha=1;
+      plot(marker.x,marker.z,PALETTE.wantedGold,MAP_DOT);
     }
     if(garage&&garage.race.active&&garage.marker())plot(garage.marker().x,garage.marker().z,PALETTE.cashGreen,4);
     if(garage)plot(garage.spot.x,garage.spot.z,PALETTE.cashGreen,3);
     if(boats)for(const b of boats.list)plot(b.position.x,b.position.z,'#3fa9c9',3);
     if(air&&air.active)plot(air.position.x,air.position.z,PALETTE.sirenRed,4);
     mapCtx.fillStyle='rgba(244,239,230,0.55)';
-    mapCtx.font='9px system-ui, sans-serif';mapCtx.textAlign='center';mapCtx.textBaseline='middle';
+    mapCtx.font='9px system-ui, sans-serif';
+    mapCtx.textAlign='center';
+    mapCtx.textBaseline='middle';
     mapCtx.fillText('N',centre+sin*(centre-10),centre-cos*(centre-10));
     mapCtx.fillStyle=PALETTE.text;
-    mapCtx.beginPath();mapCtx.moveTo(centre,centre-6);mapCtx.lineTo(centre+4.5,centre+5);mapCtx.lineTo(centre-4.5,centre+5);mapCtx.closePath();mapCtx.fill();
+    mapCtx.beginPath();
+    mapCtx.moveTo(centre,centre-6);
+    mapCtx.lineTo(centre+4.5,centre+5);
+    mapCtx.lineTo(centre-4.5,centre+5);
+    mapCtx.closePath();
+    mapCtx.fill();
     mapCtx.restore();
   }
   function toast(text){
@@ -335,7 +355,9 @@ export function createHud({missions,combat,police,vehicles,player,air,boats,gara
         toast(state.done?`Paid $${paid}. $${state.cash} and a boat out of here.`:`Paid $${paid}. $${state.cash} in the bag.`);
         sound('cash');
       }
-      lastCash=state.cash;cashLine.textContent=`$${state.cash}`;completeCash.textContent=`$${state.cash}`;
+      lastCash=state.cash;
+      cashLine.textContent=`$${state.cash}`;
+      completeCash.textContent=`$${state.cash}`;
     }
     const steps=missions.jobs.length;
     const stepText=state.done?`${steps} jobs done`:`Job ${state.job+1} of ${steps}`;
@@ -351,7 +373,8 @@ export function createHud({missions,combat,police,vehicles,player,air,boats,gara
     if(level!==lastStars){
       for(let i=0;i<STAR_COUNT;i++){
         const earned=i<level;
-        stars[i].classList.toggle('on',earned);stars[i].textContent=earned?'★':'☆';
+        stars[i].classList.toggle('on',earned);
+        stars[i].textContent=earned?'★':'☆';
       }
       lastStars=level;
     }
@@ -364,7 +387,8 @@ export function createHud({missions,combat,police,vehicles,player,air,boats,gara
     const wname=combat?combat.weaponName:'Pistol';
     const ammoText=`${wname} ${ammo}/${reserve}`;
     if(ammoText!==lastAmmo){
-      magValue.textContent=`${ammo}`;reserveValue.textContent=` / ${reserve} · ${wname}`;
+      magValue.textContent=`${ammo}`;
+      reserveValue.textContent=` / ${reserve} · ${wname}`;
       lastAmmo=ammoText;
     }
     if(combat){

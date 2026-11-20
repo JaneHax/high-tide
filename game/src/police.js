@@ -1,8 +1,8 @@
-// The police: heat and stars, cruisers that drive the grid to the player, the
-// officers who get out and shoot, roadblocks at three stars and the Air One
-// call that keeps a four-star chase alive. Siren lights are a fixed pool built
-// once and parked under the world: a PointLight added when a chase starts
-// recompiles every lit shader and stutters the frame.
+// The police: heat and stars, cruisers that drive the grid to the player,
+// the officers who get out and shoot, roadblocks at three stars, and the Air
+// One call that keeps a four-star chase alive. Siren lights are a fixed pool
+// built once and parked under the world: a PointLight added when a chase
+// starts recompiles every lit shader and stutters the frame.
 import {BoxGeometry,Color,Group,Mesh,MeshBasicMaterial,MeshLambertMaterial,PointLight,Vector3} from 'three';
 import {COMBAT,PALETTE,POLICE} from './config.js';
 import {firstHit,merge,tintedBox} from './geometry.js';
@@ -54,7 +54,10 @@ export function createPolice({city,scene,player,combat}){
   };
   for(let i=0;i<POLICE.carCount;i++){
     const light=new PointLight(RED_ON,0,26,2);
-    light.position.set(0,-1000,0);light.castShadow=false;scene.add(light);lights.push(light);
+    light.position.set(0,-1000,0);
+    light.castShadow=false;
+    scene.add(light);
+    lights.push(light);
   }
   function clearLine(point,height,targetHeight){
     from.set(point.x,point.y+height,point.z);
@@ -70,8 +73,10 @@ export function createPolice({city,scene,player,combat}){
     const red=new MeshBasicMaterial({color:PALETTE.sirenRed});
     const blue=new MeshBasicMaterial({color:PALETTE.sirenBlue}),group=new Group();
     const left=new Mesh(BAR_GEOMETRY,red),right=new Mesh(BAR_GEOMETRY,blue);
-    left.position.set(-0.22,ROOF,0);right.position.set(0.22,ROOF,0);
-    group.add(left);group.add(right);
+    left.position.set(-0.22,ROOF,0);
+    right.position.set(0.22,ROOF,0);
+    group.add(left);
+    group.add(right);
     return{group,materials:[red,blue]};
   }
   function spawnSpot(){
@@ -94,8 +99,12 @@ export function createPolice({city,scene,player,combat}){
   function spawnCar(){
     const spot=spawnSpot(),body=new Group();
     body.rotation.order='YXZ';
-    const shell=new Mesh(SHELL_GEOMETRY,SHELL_MATERIAL);shell.castShadow=true;body.add(shell);
-    const lightbar=makeSiren();body.add(lightbar.group);scene.add(body);
+    const shell=new Mesh(SHELL_GEOMETRY,SHELL_MATERIAL);
+    shell.castShadow=true;
+    body.add(shell);
+    const lightbar=makeSiren();
+    body.add(lightbar.group);
+    scene.add(body);
     const car={
       position:new Vector3(spot.x,city.surfaceAt(spot.x,spot.z),spot.z),
       heading:0,speed:0,body,lightbar,
@@ -103,7 +112,8 @@ export function createPolice({city,scene,player,combat}){
       sirenOn:true,crew:POLICE.officersPerCar,retire:false,retireTarget:null,route:[],leg:0,goal:null,
       lane:((cars.length%3)-1)*3.2};
     car.heading=Math.atan2(-(player.position.x-spot.x),-(player.position.z-spot.z));
-    body.position.copy(car.position);body.rotation.y=car.heading;
+    body.position.copy(car.position);
+    body.rotation.y=car.heading;
     cars.push(car);
     return car;
   }
@@ -114,10 +124,14 @@ export function createPolice({city,scene,player,combat}){
     cars.splice(i,1);
   }
   function addOfficer(x,z,heading){
-    const mesh=new Mesh(OFFICER_GEOMETRY,SHELL_MATERIAL);mesh.castShadow=true;
+    const mesh=new Mesh(OFFICER_GEOMETRY,SHELL_MATERIAL);
+    mesh.castShadow=true;
     const officer={position:new Vector3(x,city.surfaceAt(x,z),z),heading,health:POLICE.officerHealth,mesh,cooldown:0.35+officers.length*0.25,down:false,retire:false};
-    mesh.rotation.order='YXZ';mesh.position.copy(officer.position);mesh.rotation.y=heading;
-    scene.add(mesh);officers.push(officer);
+    mesh.rotation.order='YXZ';
+    mesh.position.copy(officer.position);
+    mesh.rotation.y=heading;
+    scene.add(mesh);
+    officers.push(officer);
     return officer;
   }
   function dismount(car){
@@ -144,7 +158,8 @@ export function createPolice({city,scene,player,combat}){
     from.set(officer.position.x,officer.position.y+1,officer.position.z);
     to.set(officer.position.x+dx,officer.position.y+1,officer.position.z+dz);
     if(firstHit(from,to,city.colliders,OFFICER_RADIUS)<1)return false;
-    officer.position.x=to.x;officer.position.z=to.z;
+    officer.position.x=to.x;
+    officer.position.z=to.z;
     officer.position.y=city.surfaceAt(officer.position.x,officer.position.z);
     return true;
   }
@@ -236,7 +251,8 @@ export function createPolice({city,scene,player,combat}){
       else car.speed=0;
     }
     car.position.y=city.surfaceAt(car.position.x,car.position.z);
-    car.body.position.copy(car.position);car.body.rotation.y=car.heading;
+    car.body.position.copy(car.position);
+    car.body.rotation.y=car.heading;
   }
   function playerCanSee(point,height){
     const dx=point.x-player.position.x,dz=point.z-player.position.z;
@@ -269,7 +285,10 @@ export function createPolice({city,scene,player,combat}){
       const o=officers[i];
       if(o.down||!o.retire)continue;
       const d=Math.hypot(o.position.x-player.position.x,o.position.z-player.position.z);
-      if(d>POLICE.spawnDistance||!playerCanSee(o.position,CHEST)){scene.remove(o.mesh);officers.splice(i,1);}
+      if(d>POLICE.spawnDistance||!playerCanSee(o.position,CHEST)){
+        scene.remove(o.mesh);
+        officers.splice(i,1);
+      }
     }
   }
   function updateLights(){
@@ -281,7 +300,8 @@ export function createPolice({city,scene,player,combat}){
       mats[0].color.copy(on&&flash?RED_ON:RED_OFF);
       mats[1].color.copy(on&&!flash?BLUE_ON:BLUE_OFF);
       if(!on||slot>=lights.length)continue;
-      const light=lights[slot];slot+=1;
+      const light=lights[slot];
+      slot+=1;
       light.position.set(car.position.x,car.position.y+ROOF+0.35,car.position.z);
       light.color.copy(flash?RED_ON:BLUE_ON);
       light.intensity=5.5+Math.abs(Math.sin(clock*9))*3;
@@ -303,9 +323,11 @@ export function createPolice({city,scene,player,combat}){
       const ox=across?jx+side*2.4:jx,oz=across?jz:jz+side*2.4;
       shell.position.set(ox,city.surfaceAt(ox,oz),oz);
       shell.rotation.y=heading;
-      group.add(shell);meshes.push(shell);
+      group.add(shell);
+      meshes.push(shell);
       const bar=makeSiren();
-      bar.group.position.copy(shell.position);bar.group.rotation.y=heading;
+      bar.group.position.copy(shell.position);
+      bar.group.rotation.y=heading;
       group.add(bar.group);
     }
     scene.add(group);
@@ -322,7 +344,8 @@ export function createPolice({city,scene,player,combat}){
     roadblocks.length=0;
   }
   function handleShot(report){
-    api.heat+=POLICE.heatShot;quiet=0;
+    api.heat+=POLICE.heatShot;
+    quiet=0;
     if(report.hit)api.heat+=POLICE.heatShot;
     if(report.killed)api.heat+=POLICE.heatKill;
     const a=report.from,b=report.to,dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z;
@@ -350,7 +373,8 @@ export function createPolice({city,scene,player,combat}){
   combat.onFire(handleShot);
   function addHeat(n){
     if(!(n>0))return;
-    api.heat+=n;api.stars=starsFor(api.heat);
+    api.heat+=n;
+    api.stars=starsFor(api.heat);
     if(api.stars>0&&api.escape<=0)api.escape=POLICE.escapeSeconds;
     quiet=0;
   }
@@ -363,7 +387,8 @@ export function createPolice({city,scene,player,combat}){
   function callOff(){api.heat=0;api.stars=0;api.escape=0;quiet=0;}
   function update(dt){
     if(!(dt>0))return;
-    clock+=dt;api.stars=starsFor(api.heat);
+    clock+=dt;
+    api.stars=starsFor(api.heat);
     let sighted=false;
     for(const o of officers){if(!o.down&&canSee(o.position)){sighted=true;break;}}
     if(!sighted)for(const car of cars)if(canSee(car.position)){sighted=true;break;}
@@ -371,7 +396,8 @@ export function createPolice({city,scene,player,combat}){
     if(api.stars>0){
       if(sighted){quiet=0;api.escape=POLICE.escapeSeconds;}
       else{
-        quiet+=dt;api.escape=Math.max(0,api.escape-dt);
+        quiet+=dt;
+        api.escape=Math.max(0,api.escape-dt);
         if(quiet>POLICE.decayDelay)api.heat=Math.max(0,api.heat-POLICE.decayRate*dt);
         if(api.escape<=0)callOff();
       }
@@ -388,7 +414,9 @@ export function createPolice({city,scene,player,combat}){
     for(const car of cars)drive(car,dt);
     for(const car of cars)dismount(car);
     for(const o of officers)updateOfficer(o,dt);
-    retireCars();retireOfficers();updateLights();
+    retireCars();
+    retireOfficers();
+    updateLights();
   }
   function clear(){
     api.heat=0;api.stars=0;api.escape=0;api.seen=false;api.shots=0;quiet=0;

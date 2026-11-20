@@ -1,7 +1,7 @@
-// The traffic that fills the streets and the car Rico can take. Every car is
-// welded primitives with four wheels; every wheel reads its height from the city.
-// The road graph cuts every segment at every crossing, because two roads that
-// cross must share a node or a turning car teleports.
+// The traffic that fills the streets and the car Rico can take. Every car
+// is welded primitives with four wheels; every wheel reads its height from
+// the city. The road graph cuts every segment at every crossing, because two
+// roads that cross must share a node or a turning car teleports.
 import {CylinderGeometry,Group,Mesh,MeshBasicMaterial,MeshLambertMaterial,Vector3} from 'three';
 import {PALETTE,VEHICLES} from './config.js';
 import {createRandom} from './random.js';
@@ -32,7 +32,8 @@ function buildGraph(segments){
     if(len<1e-6)return;
     const dx=(x2-x1)/len,dz=(z2-z1)/len,rx=-dz,rz=dx;
     const lane={from,to,x1:x1+rx*offset,z1:z1+rz*offset,x2:x2+rx*offset,z2:z2+rz*offset,dirX:dx,dirZ:dz,length:len,heading:headingOf(dx,dz)};
-    lanes.push(lane);lanesByNode[from].push(lane);
+    lanes.push(lane);
+    lanesByNode[from].push(lane);
   };
   for(const seg of segments){
     const dx=seg.x2-seg.x1,dz=seg.z2-seg.z1,len=Math.hypot(dx,dz);
@@ -53,7 +54,8 @@ function buildGraph(segments){
       const x=seg.x1+dx*t,z=seg.z1+dz*t,id=nodeAt(x,z);
       if(prev!==null&&prev.id!==id){
         edges.push({a:prev.id,b:id,length:Math.hypot(x-prev.x,z-prev.z)});
-        addLane(prev.id,id,prev.x,prev.z,x,z,off);addLane(id,prev.id,x,z,prev.x,prev.z,off);
+        addLane(prev.id,id,prev.x,prev.z,x,z,off);
+        addLane(id,prev.id,x,z,prev.x,prev.z,off);
       }
       prev={id,x,z,t};
     }
@@ -80,7 +82,8 @@ function lampGeometry(spec){
 }
 function wheelGeometry(){
   const g=new CylinderGeometry(VEHICLES.wheelRadius,VEHICLES.wheelRadius,0.26,10);
-  paint(g,'#14151a');g.rotateZ(Math.PI/2);
+  paint(g,'#14151a');
+  g.rotateZ(Math.PI/2);
   return g;
 }
 const wheelSpots=spec=>{const x=spec.width/2-0.12,z=spec.length/2-1;return[[-x,-z],[x,-z],[-x,z],[x,z]];};
@@ -94,18 +97,24 @@ export function createVehicles({city,scene,seed,player}){
     let e=meshes.get(key);
     if(!e){
       if(!sharedWheel)sharedWheel=wheelGeometry();
-      e={shell:shellGeometry(spec),lamps:lampGeometry(spec),wheel:sharedWheel};meshes.set(key,e);
+      e={shell:shellGeometry(spec),lamps:lampGeometry(spec),wheel:sharedWheel};
+      meshes.set(key,e);
     }
     return e;
   }
   function addCar(spec){
     const p=meshesFor(spec),body=new Group();
     body.rotation.order='YXZ';
-    const shell=new Mesh(p.shell,BODY_MATERIAL);shell.castShadow=true;body.add(shell);
+    const shell=new Mesh(p.shell,BODY_MATERIAL);
+    shell.castShadow=true;
+    body.add(shell);
     const wheels=[];
     for(const [x,z] of wheelSpots(spec)){
       const w=new Mesh(p.wheel,BODY_MATERIAL);
-      w.position.set(x,VEHICLES.wheelRadius,z);w.castShadow=true;body.add(w);wheels.push(w);
+      w.position.set(x,VEHICLES.wheelRadius,z);
+      w.castShadow=true;
+      body.add(w);
+      wheels.push(w);
     }
     body.add(new Mesh(p.lamps,LAMP_MATERIAL));
     scene.add(body);
@@ -122,14 +131,16 @@ export function createVehicles({city,scene,seed,player}){
   }
   function syncPiece(car){
     const p=car.piece,t=p.length>1e-6?car.along/p.length:0;
-    car.position.x=p.x1+(p.x2-p.x1)*t+car.pushX;car.position.z=p.z1+(p.z2-p.z1)*t+car.pushZ;
+    car.position.x=p.x1+(p.x2-p.x1)*t+car.pushX;
+    car.position.z=p.z1+(p.z2-p.z1)*t+car.pushZ;
   }
   function beginLane(car,lane,fx,fz){
     const gap=Math.hypot(lane.x1-fx,lane.z1-fz);
     if(gap>0.08){
       car.lane=null;car.pending=lane;
       car.piece={x1:fx,z1:fz,x2:lane.x1,z2:lane.z1,length:gap,heading:headingOf((lane.x1-fx)/gap,(lane.z1-fz)/gap),lane:null};
-      car.along=0;return;
+      car.along=0;
+      return;
     }
     car.lane=lane;car.pending=null;car.piece=lanePiece(lane);car.along=0;
   }
@@ -186,7 +197,8 @@ export function createVehicles({city,scene,seed,player}){
       const lane=lanes[rng.intRange(0,lanes.length-1)],along=rng.range(1.5,Math.max(2,lane.length-1.5));
       const t=along/lane.length,x=lane.x1+(lane.x2-lane.x1)*t,z=lane.z1+(lane.z2-lane.z1)*t;
       if(!clearAt(x,z,clearance,car))continue;
-      placeOnLane(car,lane,along);return true;
+      placeOnLane(car,lane,along);
+      return true;
     }
     return false;
   }
@@ -194,7 +206,8 @@ export function createVehicles({city,scene,seed,player}){
     const type=rng.pick(TYPES),{colours,...base}=type;
     const spec={...base,colour:rng.pick(colours)},car=addCar(spec);
     car.cruise=spec.maxSpeed*rng.range(VEHICLES.cruiseMin,VEHICLES.cruiseMax);
-    car.limit=car.cruise;car.speed=car.cruise*0.7;
+    car.limit=car.cruise;
+    car.speed=car.cruise*0.7;
     if(!putOnNetwork(car,VEHICLES.spawnClearance))placeOnLane(car,lanes[0],2);
     car.still=0;
   }
@@ -237,10 +250,12 @@ export function createVehicles({city,scene,seed,player}){
     const turn=Math.min(6,Math.max(1.6,Math.abs(car.speed)*0.45))*dt;
     car.heading+=Math.max(-turn,Math.min(turn,wrap(car.piece.heading-car.heading)));
     const decay=Math.max(0,1-2.2*dt);
-    car.pushX*=decay;car.pushZ*=decay;
+    car.pushX*=decay;
+    car.pushZ*=decay;
     if(car.cooldown>0)car.cooldown-=dt;
     const queued=ahead&&car.lane&&ahead.lane===car.lane;
-    if(car.speed<0.5&&!queued)car.still+=dt;else car.still=0;
+    if(car.speed<0.5&&!queued)car.still+=dt;
+    else car.still=0;
     if(car.still>VEHICLES.stuckSeconds){car.still=0;putOnNetwork(car,VEHICLES.spawnClearance);}
   }
   function drivePlayerCar(car,dt,input){
@@ -266,13 +281,16 @@ export function createVehicles({city,scene,seed,player}){
       from.set(car.position.x,car.position.y+0.7,car.position.z);
       to.set(from.x+sx,from.y,from.z+sz);
       const hit=firstHit(from,to,city.colliders,spec.width*0.45);
-      if(hit<1){car.position.x=from.x+sx*Math.max(0,hit-0.01);car.position.z=from.z+sz*Math.max(0,hit-0.01);car.speed=0;}
+      if(hit<1){
+        car.position.x=from.x+sx*Math.max(0,hit-0.01);
+        car.position.z=from.z+sz*Math.max(0,hit-0.01);
+        car.speed=0;
+      }
       else{car.position.x=to.x;car.position.z=to.z;}
     }
     if(car.cooldown>0)car.cooldown-=dt;
   }
-  function boxOverlap(a,b){
-    const sa=Math.sin(a.heading),ca=Math.cos(a.heading),sb=Math.sin(b.heading),cb=Math.cos(b.heading);
+  function boxOverlap(a,b){    const sa=Math.sin(a.heading),ca=Math.cos(a.heading),sb=Math.sin(b.heading),cb=Math.cos(b.heading);
     const axes=[[-sa,-ca],[ca,-sa],[-sb,-cb],[cb,-sb]];
     const dx=b.position.x-a.position.x,dz=b.position.z-a.position.z;
     let smallest=null;
@@ -300,7 +318,8 @@ export function createVehicles({city,scene,seed,player}){
     return best;
   }
   function shove(car,dx,dz){
-    car.position.x+=dx;car.position.z+=dz;
+    car.position.x+=dx;
+    car.position.z+=dz;
     if(car.ai){car.pushX+=dx;car.pushZ+=dz;}
   }
   function resolveCollisions(){
@@ -320,12 +339,14 @@ export function createVehicles({city,scene,seed,player}){
         if(a===driven||b===driven){
           const winner=a===driven?a:b,other=a===driven?b:a,side=a===driven?1:-1;
           shove(other,axis.nx*side*(axis.depth+0.02),axis.nz*side*(axis.depth+0.02));
-          winner.speed*=0.55;other.speed*=0.35;
+          winner.speed*=0.55;
+          other.speed*=0.35;
           if(hitCallback&&other.cooldown<=0){other.cooldown=0.3;hitCallback(other,closing);}
         }else{
           shove(a,-axis.nx*axis.depth*0.5,-axis.nz*axis.depth*0.5);
           shove(b,axis.nx*axis.depth*0.5,axis.nz*axis.depth*0.5);
-          a.speed*=0.7;b.speed*=0.7;
+          a.speed*=0.7;
+          b.speed*=0.7;
         }
       }
     }
@@ -333,7 +354,8 @@ export function createVehicles({city,scene,seed,player}){
   function keepOffWalls(car){
     const s=unstick(car.position.x,car.position.z,car.spec.width*0.5,car.position.y+0.5,city.colliders);
     if(s.x!==car.position.x||s.z!==car.position.z)car.speed=0;
-    car.position.x=s.x;car.position.z=s.z;
+    car.position.x=s.x;
+    car.position.z=s.z;
   }
   function sitOnGround(car,dt){
     const spec=car.spec,s=Math.sin(car.heading),c=Math.cos(car.heading),fx=-s,fz=-c,rx=c,rz=-s;
@@ -391,7 +413,8 @@ export function createVehicles({city,scene,seed,player}){
     let spot=spots[0];
     for(const cand of spots)if(!blockedAt(cand[0],cand[1])){spot=cand;break;}
     player.position.set(spot[0],city.surfaceAt(spot[0],spot[1]),spot[1]);
-    player.velocity.set(0,0,0);player.state='idle';
+    player.velocity.set(0,0,0);
+    player.state='idle';
     return car;
   }
   // Garage: park the driven car away and bring a stored one back.
@@ -424,9 +447,13 @@ export function createVehicles({city,scene,seed,player}){
     resolveCollisions();
     for(const car of cars){
       if(!car.spec)continue;
-      keepOffWalls(car);sitOnGround(car,dt);
+      keepOffWalls(car);
+      sitOnGround(car,dt);
     }
-    if(driven){player.position.copy(driven.position);player.yaw=driven.heading;}
+    if(driven){
+      player.position.copy(driven.position);
+      player.yaw=driven.heading;
+    }
   }
   const vehicles={
     cars,
