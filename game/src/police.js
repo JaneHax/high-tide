@@ -14,7 +14,7 @@ if (d < bd && fx > r.from && fx < r.to && fz > r.from && fz < r.to) { bd = d; ro
 const along = road.axis === 'x' ? clamp(fx, road.from + 14, road.to - 14) : clamp(fz, road.from + 14, road.to - 14);
 const cars = [];
 for (const s of [-2.6, 2.6]) {
-const x = road.axis === 'x' ? along + s : road.pos, z = road.axis === 'x' ? road.pos : along + s;
+const x = road.axis === 'x' ? along : road.pos + s, z = road.axis === 'x' ? road.pos + s : along;
 const car = new Car(this.scene, 'police', x, z, road.axis === 'x' ? 0 : Math.PI / 2); car.stationary = true; car.ai = false; car.addHeadlight(); cars.push(car); }
 this.deployOfficers(cars[0]); this.block = { cars }; return this.block; } spawnPoint(px, pz) {
 const options = []; for (const r of ROADS) { if (r.axis === 'z' && Math.abs(r.pos) < 10) continue; for (let t = r.from + 20; t < r.to - 20; t += 34) {

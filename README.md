@@ -9,7 +9,7 @@ Rico has one last shift for the Sombra crew before the water comes over the quay
 only way across the channel is a bascule bridge that keeps going up without asking.
 
 A small open-world crime game in the browser: three.js, hand-built geometry, no textures
-off disk, no assets to download. You get a car, a boat, a pistol, four jobs and a wanted
+off disk, no assets to download. You get a car, a boat, four weapons, ten jobs and a wanted
 level that grows every time you do something loud.
 
 ![High Tide: Storm Shift — the Tempest GT with Guardia cruisers on the marina road](screenshots/01_hero_chase.jpg)
@@ -53,9 +53,11 @@ you when the script needs the channel.
 
 ## The jobs
 
-Four jobs, taken from glowing markers at the garage, the marina and the market. Walk into a
+Ten jobs, taken from glowing markers at the garage, the marina and the market. Walk into a
 marker and press **E**. The dispatch panel then carries the current step, the distance to it
-and any clock, and a beacon marks the target.
+and any clock, and a beacon marks the target. Each marker asks something different of you,
+and when the condition is not met the panel says what is missing instead of refusing in
+silence.
 
 **DEAD DROP** — Mara, at the Sombra lot. Take the Sol Courier, load crates at the fish
 market, run them to the art-deco terminal. Pays $320 and 45 REP.
@@ -72,14 +74,36 @@ $1,250 and 220 REP.
 **QUAY CIRCUIT** — Elio, at the market. Five checkpoints around the south quay against a
 100-second clock. Pays $420 and 70 REP.
 
-Jobs pay once. Cash and REP are yours to keep.
+**REPO RUN** — Mara, at the garage. A sedan lifted from the Guardia impound has to reach the
+terminal weighbridge, and the job only finishes if you are still behind its wheel. Pays $380.
+
+**LAST LIGHT** — Elio, at the market. Run an envelope to the north quay inside forty-eight
+seconds. Let the clock run out and the job goes cold. Pays $460.
+
+**CLEAN HANDS** — Mara, at the garage. The terminal gate opens only for a car with no stars
+on it: lose every wanted level before you arrive. Pays $540.
+
+**SPLIT TAKE** — the Sombra crew, at the market. Two halves of one payout: the bag behind
+the fish market, then the launch at the east pier, with two stars on you from the handoff.
+Pays once, at the end: $980.
+
+**HARBOR FERRY** — Elio, at the marina. A fare will only board from open water, so the job
+completes in the launch and nowhere else. Pays $520.
+
+**TOLL RUN** — Elio, at the market. The north gate wants $200 in cash before it lifts the
+barrier; arrive with the toll or not at all. Pays $430.
+
+Jobs pay once. Cash and REP are yours to keep, and every paid job raises your standing in
+the district where it finished — the map card shows the district and its standing.
 
 ## Heat
 
 The five stars in the top right are the Guardia's interest in you. Cruisers spawn on the
 road grid and come for you — up to four at a time, sirens and light bars going. Stop near
-one on foot and two officers get out and start shooting. At four stars a helicopter joins in,
-circling overhead with a searchlight; at five it opens fire too.
+one on foot and two officers get out and start shooting. At three stars a roadblock appears
+a short way down the road you are heading along: two cruisers parked across the lane and two
+officers beside them, cleared when the heat drops below three. At four stars a helicopter
+joins in, circling overhead with a searchlight; at five it opens fire too.
 
 You earn heat by firing a shot, by taking a cruiser, by dropping an officer, and by running
 down a civilian. You lose it by distance: stay more than a hundred metres clear for
@@ -133,13 +157,23 @@ jobs are done.
 | **SPACE** | — | handbrake | — |
 | **E** | interact / take a job / enter a car or boat | exit | dock and step off |
 | **R** | reload | — | — |
+| **1 2 3 4** | select weapon | select weapon | select weapon |
+| **Q** | next weapon | next weapon | next weapon |
+| **T** | cycle radio station | cycle radio station | cycle radio station |
 | **B** | — | — | call the bridge |
 | **M** | mute | mute | mute |
 | **WHEEL** | camera zoom | camera zoom | camera zoom |
 | **ESC** | pause and save | pause and save | pause and save |
 
-The pistol holds twelve rounds with ninety-six in reserve, and the crosshair only appears
-when you are actually aiming.
+Four weapons, each with its own magazine and reserve: the **Guardia 9** pistol (12 rounds,
+single shots), the **Breacher** shotgun (6 shells, eight pellets a pull), the **Sombra SMG**
+(30 rounds, keeps firing while the trigger is held) and the **Faro Rifle** (5 rounds, long
+range and slow). **1** to **4** select, **Q** cycles, **R** reloads, and the drive panel
+names the gun in hand, its magazine and reserve, and the weapons still to come. The
+crosshair only appears when you are actually aiming.
+
+The radio line under the map names the station and retunes itself as you cross districts;
+**T** cycles the four stations by hand.
 
 ## Running it
 
