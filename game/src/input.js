@@ -1,44 +1,68 @@
-// Keyboard and mouse behind pointer lock. A press is reported until the
-// frame ends, and never twice. E is context interact, Enter starts the game
-// from the title card and confirms on cards.
-import {CAMERA} from './config.js';
-const TRACKED=new Set(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','Space','KeyF','KeyE','KeyR','Escape','Enter','Digit1','Digit2','Digit3','KeyQ']);
-export function createInput(canvas){
-  const down=new Set(),pressed=new Set(),mouse={left:false,dx:0,dy:0},gestures=[];
-  let gestured=false;
-  function gesture(){
-    if(gestured)return;
-    gestured=true;
-    for(const fn of gestures)fn();
-  }
-  window.addEventListener('keydown',e=>{
-    gesture();
-    if(!TRACKED.has(e.code))return;
-    if(e.code!=='Escape')e.preventDefault();
-    if(e.repeat)return;
+// Keyboard and mouse state. The game reads keys by their physical code
+// (KeyW, KeyE, Digit1 ...), so layouts do not matter. Mouse movement is
+// collected only while the pointer is locked to the canvas.
+export function createInput(canvas) {
+  const down = new Set();
+  const pressed = new Set();
+  let mouseDX = 0;
+  let mouseDY = 0;
+  let mouseHeld = false;
+  let clicked = false;
+  let locked = false;
+
+  function onKeyDown(e) {
+    if (e.repeat) return;
     down.add(e.code);
     pressed.add(e.code);
-  });
-  window.addEventListener('keyup',e=>{if(TRACKED.has(e.code))down.delete(e.code);});
-  window.addEventListener('blur',()=>{down.clear();mouse.left=false;});
-  document.addEventListener('pointerlockchange',()=>{
-    if(document.pointerLockElement===canvas)return;
-    mouse.left=false;pressed.add('Escape');
-  });
-  canvas.addEventListener('pointerdown',e=>{gesture();if(e.button===0)mouse.left=true;});
-  window.addEventListener('pointerup',e=>{if(e.button===0)mouse.left=false;});
-  window.addEventListener('mousemove',e=>{
-    if(document.pointerLockElement!==canvas)return;
-    mouse.dx+=e.movementX;mouse.dy+=e.movementY;
-  });
-  canvas.addEventListener('contextmenu',e=>e.preventDefault());
-  return{
-    isDown(code){return down.has(code);},
-    wasPressed(code){return pressed.has(code);},
-    mouse,
-    get yawDelta(){return -mouse.dx*CAMERA.sensitivity;},
-    requestLock(){if(document.pointerLockElement!==canvas)canvas.requestPointerLock?.();},
-    endFrame(){pressed.clear();mouse.dx=0;mouse.dy=0;},
-    onGesture(fn){gestures.push(fn);if(gestured)fn();},
+    if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'Tab'].includes(e.code)) e.preventDefault();
+  }
+  function onKeyUp(e) { down.delete(e.code); }
+  function onMouseMove(e) {
+    if (!locked) return;
+    mouseDX += e.movementX || 0;
+    mouseDY += e.movementY || 0;
+  }
+  function onMouseDown(e) {
+    if (e.button === 0) { mouseHeld = true; clicked = true; }
+  }
+  function onMouseUp(e) {
+    if (e.button === 0) mouseHeld = false;
+  }
+  function onLockChange() { locked = document.pointerLockElement === canvas; }
+  function onClick() {
+    if (!locked && canvas.requestPointerLock) {
+      try { canvas.requestPointerLock(); } catch { /* pointer lock is optional */ }
+    }
+  }
+
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('keyup', onKeyUp);
+  window.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('mousedown', onMouseDown);
+  window.addEventListener('mouseup', onMouseUp);
+  document.addEventListener('pointerlockchange', onLockChange);
+  canvas.addEventListener('click', onClick);
+
+  return {
+    isDown(code) { return down.has(code); },
+    wasPressed(code) { return pressed.has(code); },
+    axis() {
+      // -1..1 strafing / forward from WASD, relative to the camera.
+      let x = 0, y = 0;
+      if (down.has('KeyW') || down.has('ArrowUp')) y += 1;
+      if (down.has('KeyS') || down.has('ArrowDown')) y -= 1;
+      if (down.has('KeyA') || down.has('ArrowLeft')) x -= 1;
+      if (down.has('KeyD') || down.has('ArrowRight')) x += 1;
+      return { x, y };
+    },
+    sprint() { return down.has('ShiftLeft') || down.has('ShiftRight'); },
+    mouseDelta() {
+      const d = { x: mouseDX, y: mouseDY };
+      mouseDX = 0; mouseDY = 0;
+      return d;
+    },
+    mouseDown() { return mouseHeld; },
+    wasClicked() { return clicked; },
+    endFrame() { pressed.clear(); clicked = false; },
   };
 }

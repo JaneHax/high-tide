@@ -1,82 +1,50 @@
-// Two booms on the one camera: a short one that follows Rico on foot and a
-// long one that trails a car or a boat. Both are pulled in by the first wall
-// in their way, so the camera never clips through a building.
-import {Vector3} from 'three';
-import {CAMERA} from './config.js';
-import {firstHit} from './geometry.js';
-const _dir=new Vector3();
-const clampPitch=v=>Math.max(CAMERA.pitchMin,Math.min(CAMERA.pitchMax,v));
-const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
-// Shorten the boom to the first wall between anchor and wanted point.
-function resolveBoom(anchor,point,colliders){
-  if(!colliders||colliders.length===0)return;
-  _dir.subVectors(point,anchor);
-  const span=_dir.length();
-  if(span<1e-4)return;
-  _dir.divideScalar(span);
-  const hit=firstHit(anchor,point,colliders,CAMERA.collisionPadding);
-  let boom=hit>=1?span:span*hit-0.05;
-  if(hit<1)boom=Math.max(boom,Math.min(CAMERA.minDistance,span));
-  boom=Math.max(0,Math.min(span,boom));
-  point.copy(anchor).addScaledVector(_dir,boom);
-  const hard=firstHit(anchor,point,colliders,CAMERA.near+0.05);
-  if(hard<1){
-    const shorter=Math.max(0,boom*hard-0.04);
-    if(shorter<boom)point.copy(anchor).addScaledVector(_dir,shorter);
-  }
-}
-export function createFollowCamera({camera,player}){
-  const anchor=new Vector3(),wanted=new Vector3(),look=new Vector3();
-  const follow={
-    yaw:player?player.yaw:0,
-    pitch:CAMERA.pitch,
-    update(dt,input,body){
-      follow.yaw+=input.yawDelta;
-      follow.pitch=clampPitch(follow.pitch-input.mouse.dy*CAMERA.sensitivity);
-      aim(body,1-Math.exp(-CAMERA.followLag*dt));
-    },
-    snap(body){follow.yaw=body.yaw;aim(body,1);},
-    setYaw(v){follow.yaw=v;},
-  };
-  function aim(body,ease){
-    anchor.set(body.position.x,body.position.y+CAMERA.height,body.position.z);
-    const cos=Math.cos(follow.pitch);
-    wanted.set(anchor.x+Math.sin(follow.yaw)*CAMERA.distance*cos,anchor.y-Math.sin(follow.pitch)*CAMERA.distance,anchor.z+Math.cos(follow.yaw)*CAMERA.distance*cos);
-    resolveBoom(anchor,wanted,body.colliders);
-    camera.position.lerp(wanted,ease);
-    resolveBoom(anchor,camera.position,body.colliders);
-    look.set(body.position.x,body.position.y+1.45,body.position.z);
+// Third-person follow camera. It trails behind the player (or the car, or
+// the boat) at a fixed distance, eases toward its target, and lets the
+// mouse orbit around it. Pitch is clamped so the camera never goes under
+// the ground or straight overhead.
+import * as THREE from 'three';
+
+export function createCamera(camera) {
+  let yaw = Math.PI;      // looking south to start, city and sea ahead
+  let pitch = 0.32;
+  let distance = 11;
+  const target = new THREE.Vector3();
+  const desired = new THREE.Vector3();
+  const look = new THREE.Vector3();
+
+  function update(dt, input, follow, height = 2.2) {
+    const md = input.mouseDelta();
+    yaw -= md.x * 0.0032;
+    pitch += md.y * 0.0026;
+    pitch = Math.max(0.08, Math.min(1.1, pitch));
+    target.set(follow.x, follow.y + height, follow.z);
+    desired.set(
+      target.x + Math.sin(yaw) * Math.cos(pitch) * distance,
+      target.y + Math.sin(pitch) * distance,
+      target.z + Math.cos(yaw) * Math.cos(pitch) * distance,
+    );
+    const k = 1 - Math.exp(-dt * 7);
+    camera.position.lerp(desired, k);
+    look.lerp(target, k);
     camera.lookAt(look);
   }
-  if(player)aim(player,1);
-  return follow;
-}
-export function createChaseCamera({camera,city}){
-  const target=new Vector3(),anchor=new Vector3(),wanted=new Vector3(),look=new Vector3();
-  let yaw=0,pitch=CAMERA.pitch;
-  function aim(){
-    anchor.set(target.x,target.y+CAMERA.chaseHeight,target.z);
-    const cos=Math.cos(pitch);
-    wanted.set(anchor.x+Math.sin(yaw)*CAMERA.chaseDistance*cos,anchor.y-Math.sin(pitch)*CAMERA.chaseDistance,anchor.z+Math.cos(yaw)*CAMERA.chaseDistance*cos);
-    resolveBoom(anchor,wanted,city.colliders);
-    camera.position.copy(wanted);
-    look.set(target.x,target.y+1,target.z);
-    camera.lookAt(look);
+
+  function snap(follow, height = 2.2) {
+    target.set(follow.x, follow.y + height, follow.z);
+    camera.position.set(
+      target.x + Math.sin(yaw) * Math.cos(pitch) * distance,
+      target.y + Math.sin(pitch) * distance,
+      target.z + Math.cos(yaw) * Math.cos(pitch) * distance,
+    );
+    camera.lookAt(target);
+    look.copy(target);
   }
-  return{
-    update(dt,input,car){
-      yaw+=input.yawDelta;
-      pitch=clampPitch(pitch-input.mouse.dy*CAMERA.sensitivity);
-      if(car){
-        target.copy(car.position);
-        yaw+=wrap(car.heading-yaw)*(1-Math.exp(-CAMERA.chaseLag*dt));
-      }
-      aim();
-    },
-    reset(car){
-      if(car){target.copy(car.position);yaw=car.heading;}
-      pitch=CAMERA.pitch;
-      aim();
-    },
+
+  function setDistance(d) { distance = d; }
+
+  return {
+    update, snap, setDistance,
+    get yaw() { return yaw; },
+    set yaw(v) { yaw = v; },
   };
 }

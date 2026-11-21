@@ -1,124 +1,161 @@
-// Rico's garage and the street races that start outside it. The garage is
-// the gold-roofed alley lot: E stores the car Rico is driving, E brings it
-// back. The race posts are three junctions: E starts a three-checkpoint
-// timed race that pays on a win and remembers the best time.
-import {CylinderGeometry,DoubleSide,Group,Mesh,MeshBasicMaterial,RingGeometry} from 'three';
-import {GARAGE,MISSIONS,PALETTE} from './config.js';
-const nearestOf=(list,v)=>{
-  let best=list[0],gap=Math.abs(v-best);
-  for(const e of list){const d=Math.abs(e-v);if(d<gap){gap=d;best=e;}}
-  return best;
-};
-export function createGarage({city,scene,player,vehicles,hud}){
-  const spot={x:city.garage.x,z:city.garage.z};
-  const state={stored:null,race:{active:false,post:0,cp:0,timer:0,best:0,elapsed:0},marker:null};
-  let payCallback=null,toastFn=null;
-  const toast=t=>{
-    if(hud&&typeof hud.toast==='function')hud.toast(t);
-    else if(toastFn)toastFn(t);
-  };
-  const marker=new Group();
-  const ringMat=new MeshBasicMaterial({color:PALETTE.cashGreen,transparent:true,opacity:0.85,depthWrite:false,side:DoubleSide});
-  const colMat=new MeshBasicMaterial({color:PALETTE.cashGreen,transparent:true,opacity:0.14,depthWrite:false,side:DoubleSide});
-  const ring=new Mesh(new RingGeometry(MISSIONS.markerRadius*0.74,MISSIONS.markerRadius,44),ringMat);
-  ring.rotation.x=-Math.PI/2;
-  ring.position.y=0.04;
-  const col=new Mesh(new CylinderGeometry(MISSIONS.markerRadius*0.74,MISSIONS.markerRadius,MISSIONS.markerHeight,32,1,true),colMat);
-  col.position.y=MISSIONS.markerHeight/2;
-  marker.add(ring,col);
-  marker.visible=false;
+// The garage: store the car you drove in, fetch it back later, and run
+// street races from the posts beside it. Cash, reputation, the stored
+// car and the best race time are kept in the browser's local storage,
+// so a saved game survives a reload.
+import * as THREE from 'three';
+import { GARAGE, SAVE_KEY, WORLD } from './config.js';
+import { ring } from './geometry.js';
+
+export function createGarage(scene, city, player, vehicles, missions) {
+  const lot = city.garageLot;
+  let stored = false;
+  let bestRace = null;
+  let racing = false;
+  let raceTimer = 0;
+  let raceCp = 0;
+  let raceCps = [];
+  const marker = new THREE.Group();
+  const markerRing = ring(4, 5.5, 0x37e0a0, { opacity: 0.8 });
+  marker.add(markerRing);
+  marker.visible = false;
   scene.add(marker);
-  function nearPost(){
-    for(let i=0;i<city.racePosts.length;i++){
-      const p=city.racePosts[i];
-      if(Math.hypot(player.position.x-p.x,player.position.z-p.z)<4)return i;
+
+  function loadSave() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch {
+      return null;
     }
-    return -1;
   }
-  function nearGarage(){
-    return Math.hypot(player.position.x-spot.x,player.position.z-spot.z)<6;
+
+  function saveGame() {
+    try {
+      const data = {
+        cash: missions.state.cash,
+        rep: missions.state.rep,
+        stored,
+        bestRace,
+        weapons: [],
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    } catch { /* storage may be unavailable */ }
   }
-  function checkpoints(post){
-    const p=city.racePosts[post];
-    const pts=[[p.x+66,p.z],[p.x+66,p.z+66],[p.x,p.z+66]];
-    return pts.map(([x,z])=>({x:nearestOf(city.roads.zRoads,x),z:nearestOf(city.roads.xRoads,z)}));
+
+  function applySave(save) {
+    if (!save) return;
+    missions.state.cash = save.cash || 0;
+    if (save.rep) missions.addRep(save.rep);
+    stored = !!save.stored;
+    bestRace = save.bestRace ?? null;
   }
-  function markCheckpoint(){
-    const race=state.race;
-    if(!race.active){state.marker=null;marker.visible=false;return;}
-    const cp=race.checkpoints[race.cp];
-    if(!cp){state.marker=null;marker.visible=false;return;}
-    state.marker={x:cp.x,y:city.surfaceAt(cp.x,cp.z),z:cp.z};
-    marker.position.set(cp.x,state.marker.y,cp.z);
-    marker.visible=true;
+
+  function inLot() {
+    const p = player.state.position;
+    return Math.abs(p.x - lot.x) < lot.w / 2 && Math.abs(p.z - lot.z) < lot.d / 2;
   }
-  function startRace(post){
-    if(state.race.active)return false;
-    state.race={active:true,post,cp:0,timer:GARAGE.raceSeconds,best:state.race.best,elapsed:0,checkpoints:checkpoints(post)};
-    markCheckpoint();
-    toast('Street race: three checkpoints, sixty seconds. Go.');
-    return true;
-  }
-  function interactLabel(){
-    if(vehicles.drivenCar&&nearGarage())return 'Store car in garage';
-    if(!vehicles.drivenCar&&state.stored&&nearGarage())return 'Retrieve stored car';
-    if(!state.race.active&&nearPost()>=0)return 'Start street race';
-    if(state.race.active)return 'Race: reach the green ring';
+
+  function nearPost() {
+    const p = player.state.position;
+    for (const post of city.racePosts) {
+      if (Math.hypot(p.x - post.x, p.z - post.z) < 4) return post;
+    }
     return null;
   }
-  function doInteract(){
-    if(vehicles.drivenCar&&nearGarage()){
-      const spec=vehicles.stash();
-      if(spec){state.stored=spec;toast(`Stored the ${spec.name}. It will be here when you come back.`);return true;}
-    }
-    if(!vehicles.drivenCar&&state.stored&&nearGarage()){
-      const spec=state.stored;
-      state.stored=null;
-      vehicles.spawnStored(spec,spot.x,spot.z+4);
-      toast(`The ${spec.name} is back out.`);
-      return true;
-    }
-    const post=nearPost();
-    if(post>=0&&!state.race.active)return startRace(post);
-    return false;
+
+  function prompt() {
+    if (racing) return null;
+    if (inLot() && vehicles.drivenCar) return 'Store car in garage';
+    if (inLot() && stored && !vehicles.drivenCar) return 'Retrieve stored car';
+    const post = nearPost();
+    if (post) return 'Start street race';
+    return null;
   }
-  function update(dt){
-    const race=state.race;
-    if(!race.active)return;
-    race.timer-=dt;
-    race.elapsed+=dt;
-    const cp=race.checkpoints[race.cp];
-    if(cp){
-      const d=Math.hypot(player.position.x-cp.x,player.position.z-cp.z);
-      if(d<MISSIONS.reachRadius+1){
-        race.cp+=1;
-        if(race.cp>=race.checkpoints.length){
-          race.active=false;marker.visible=false;state.marker=null;
-          const won=race.elapsed;
-          if(!race.best||won<race.best)race.best=won;
-          if(payCallback)payCallback(GARAGE.racePay);
-          toast(`Race won in ${won.toFixed(1)}s. Paid $${GARAGE.racePay}. Best ${race.best.toFixed(1)}s.`);
-          return;
-        }
-        markCheckpoint();
-        toast(`Checkpoint ${race.cp} of 3.`);
+
+  function storeCar() {
+    if (!vehicles.drivenCar) return false;
+    const c = vehicles.drivenCar;
+    c.parked = true;
+    c.mesh.visible = false;
+    vehicles.exitCar();
+    stored = true;
+    saveGame();
+    return true;
+  }
+
+  function retrieveCar() {
+    if (!stored || vehicles.drivenCar) return false;
+    const car = vehicles.spawnNearPlayer();
+    car.x = lot.x;
+    car.z = lot.z - 4;
+    car.mesh.position.set(car.x, 0, car.z);
+    stored = false;
+    saveGame();
+    return true;
+  }
+
+  function racePoints() {
+    // Three checkpoints along the roads near the garage.
+    const roads = city.roads.xRoads;
+    return [
+      { x: lot.x - 70, z: roads[3] },
+      { x: lot.x - 70, z: roads[5] },
+      { x: lot.x + 10, z: roads[5] },
+    ];
+  }
+
+  function startRace() {
+    if (racing) return false;
+    racing = true;
+    raceTimer = GARAGE.raceSeconds;
+    raceCp = 0;
+    raceCps = racePoints();
+    const c = raceCps[0];
+    marker.position.set(c.x, 0.1, c.z);
+    marker.visible = true;
+    return true;
+  }
+
+  function raceMarker() {
+    return racing ? raceCps[raceCp] : null;
+  }
+
+  function update(dt) {
+    if (!racing) return;
+    raceTimer -= dt;
+    const cp = raceCps[raceCp];
+    const p = player.state.position;
+    if (cp && vehicles.drivenCar && Math.hypot(p.x - cp.x, p.z - cp.z) < 6) {
+      raceCp += 1;
+      if (raceCp >= raceCps.length) {
+        racing = false;
+        marker.visible = false;
+        const used = GARAGE.raceSeconds - raceTimer;
+        missions.state.cash += GARAGE.raceWin;
+        missions.addRep(GARAGE.raceRep);
+        if (bestRace === null || used < bestRace) bestRace = Math.round(used * 10) / 10;
+        saveGame();
+        if (missions && missions.state) { /* cash toast comes from the HUD */ }
+        return;
       }
+      const next = raceCps[raceCp];
+      marker.position.set(next.x, 0.1, next.z);
     }
-    if(race.timer<=0){
-      race.active=false;marker.visible=false;state.marker=null;
-      toast('Race over — too slow. The post is still there when you want it.');
+    if (raceTimer <= 0) {
+      racing = false;
+      marker.visible = false;
     }
   }
-  return{
-    spot,state,marker:()=>state.marker,
-    get stored(){return state.stored;},
-    set stored(v){state.stored=v;},
-    get race(){return state.race;},
-    set raceBest(v){state.race.best=v;},
-    get raceBest(){return state.race.best;},
-    interactLabel,doInteract,startRace,update,
-    onPay(fn){payCallback=typeof fn==='function'?fn:null;},
-    onToast(fn){toastFn=typeof fn==='function'?fn:null;},
-    nearPost,nearGarage,
+
+  return {
+    loadSave, saveGame, applySave, prompt, storeCar, retrieveCar,
+    startRace, update, inLot, nearPost,
+    get stored() { return stored; },
+    get bestRace() { return bestRace; },
+    get racing() { return racing; },
+    get raceTimer() { return raceTimer; },
+    get raceCp() { return raceCp; },
+    raceMarker,
   };
 }

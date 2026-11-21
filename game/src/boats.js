@@ -1,91 +1,108 @@
-// Boats on the harbour. Two tied at the piers and one drifting off the
-// breakwater: F boards the nearest one the way Rico takes a car, W drives it,
-// A and D steer it, and it floats on the water the city already built.
-import {Group,Mesh,MeshLambertMaterial,Vector3} from 'three';
-import {BOATS,PALETTE} from './config.js';
-import {merge,tintedBox} from './geometry.js';
-const MATERIAL=new MeshLambertMaterial({vertexColors:true,flatShading:true});
-const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
-function hull(colour){
-  return merge([
-    tintedBox(2.2,0.7,6.4,colour,0,0.35,0),
-    tintedBox(1.9,0.5,5.6,PALETTE.wallCream,0,0.85,0.2),
-    tintedBox(1.4,0.9,1.6,'#232a36',0,1.3,0.9),
-    tintedBox(2.3,0.14,0.5,PALETTE.roof,0,0.72,-3.1),
-    tintedBox(0.3,1.1,0.3,PALETTE.asphalt,0,1.6,-1.4)]);
+// Boats at the marina. Board one with F, drive it on the water with W
+// to go forward and A and D to steer, and leave it with F. Boats stay
+// on the water: they cannot climb onto land.
+import * as THREE from 'three';
+import { BOAT, WORLD } from './config.js';
+import { box, tube, cone, place, groupAt } from './geometry.js';
+import { makeRng, pick } from './random.js';
+
+function buildBoat(color) {
+  const g = groupAt(0, 0, 0);
+  const hull = box(2.4, 0.9, 6.0, color);
+  place(hull, 0, 0.45, 0);
+  g.add(hull);
+  const bow = cone(1.2, 1.8, color, {}, 4);
+  bow.rotation.x = Math.PI / 2;
+  bow.rotation.y = Math.PI / 4;
+  place(bow, 0, 0.45, 3.8);
+  g.add(bow);
+  const deck = box(2.0, 0.25, 4.6, 0xd8c9a8);
+  place(deck, 0, 0.95, -0.4);
+  g.add(deck);
+  const seat = box(1.8, 0.5, 0.8, 0x8a6f5c);
+  place(seat, 0, 1.2, -1.6);
+  g.add(seat);
+  const mast = tube(0.09, 0.12, 3.4, 0x888888);
+  place(mast, 0, 2.6, 0.6);
+  g.add(mast);
+  return g;
 }
-export function createBoats({city,scene,player}){
-  const list=[];
-  const colours=[PALETTE.sea,PALETTE.wallCream,PALETTE.sirenRed];
-  city.boatSpots.forEach((spot,i)=>{
-    const body=new Group();
-    const mesh=new Mesh(hull(colours[i%colours.length]),MATERIAL);
-    mesh.castShadow=true;
-    body.add(mesh);
-    scene.add(body);
-    list.push({
-      position:new Vector3(spot.x,BOATS.floatY,spot.z),heading:i*1.3,speed:0,
-      body,mesh,boarded:false,wake:0,
-    });
-  });
-  let boarded=null,clock=0;
-  function nearest(point,reach){
-    let best=null,bestD=reach;
-    for(const b of list){
-      const d=Math.hypot(b.position.x-point.x,b.position.z-point.z);
-      if(d<=bestD){bestD=d;best=b;}
+
+export function createBoats(scene, city, player) {
+  const rng = makeRng(31337);
+  const boats = [];
+  const colors = [0xd8d8d8, 0x3c6ec9, 0xc93c3c];
+  for (let i = 0; i < BOAT.count; i++) {
+    const spot = city.boatSpots[i];
+    const mesh = buildBoat(colors[i]);
+    // Moored facing open water (south), so W drives straight out to sea.
+    place(mesh, spot.x, -0.1, spot.z, 0);
+    scene.add(mesh);
+    boats.push({ mesh, x: spot.x, z: spot.z, heading: 0, speed: 0, moored: true });
+  }
+  let boarded = null;
+
+  function nearestBoat(maxDist) {
+    const p = player.state.position;
+    let best = null, bestD = maxDist;
+    for (const b of boats) {
+      const d = Math.hypot(b.x - p.x, b.z - p.z);
+      if (d < bestD) { bestD = d; best = b; }
     }
     return best;
   }
-  function board(){
-    if(boarded)return null;
-    const b=nearest(player.position,BOATS.boardReach);
-    if(!b)return null;
-    b.boarded=true;boarded=b;b.speed=0;
-    player.state='sailing';player.velocity.set(0,0,0);
-    player.position.copy(b.position);player.yaw=b.heading;
-    return b;
+
+  function board() {
+    const b = nearestBoat(4.5);
+    if (!b) return false;
+    boarded = b;
+    b.moored = false;
+    player.body.visible = false;
+    return true;
   }
-  function leave(){
-    if(!boarded)return null;
-    const b=boarded;
-    b.boarded=false;b.speed=0;boarded=null;
-    // Step Rico onto the nearest pier deck when he is beside one, else the beach.
-    const pier=city.piers.x.reduce((best,px)=>Math.abs(px-b.position.x)<Math.abs(best-b.position.x)?px:best,city.piers.x[0]);
-    const onPier=Math.abs(b.position.x-pier)<=6&&b.position.z>=city.piers.endZ-2;
-    const x=onPier?pier:b.position.x;
-    const z=onPier?Math.max(b.position.z,city.piers.endZ+2):Math.min(b.position.z,-286);
-    player.position.set(x,city.surfaceAt(x,z),z);
-    player.velocity.set(0,0,0);
-    player.state='idle';
-    return b;
+
+  function leave() {
+    if (!boarded) return;
+    const p = player.state.position;
+    // Step off onto the pier deck, or the beach if that is closer.
+    const pierX = WORLD.pierX;
+    const onPier = Math.abs(boarded.x - pierX) < 12;
+    p.set(
+      onPier ? pierX : boarded.x,
+      city.surfaceAt(onPier ? pierX : boarded.x, boarded.z),
+      boarded.z,
+    );
+    player.body.visible = true;
+    boarded.speed = 0;
+    boarded = null;
   }
-  function update(dt,input){
-    clock+=dt;
-    if(boarded){
-      const throttle=input?input.isDown('KeyW'):false,brake=input?input.isDown('KeyS'):false;
-      const steer=(input&&input.isDown('KeyA')?1:0)-(input&&input.isDown('KeyD')?1:0);
-      if(throttle)boarded.speed=Math.min(BOATS.maxSpeed,boarded.speed+BOATS.accel*dt);
-      else if(brake)boarded.speed=Math.max(0,boarded.speed-BOATS.accel*1.4*dt);
-      else boarded.speed=Math.max(0,boarded.speed-1.2*dt);
-      const bite=Math.min(1,Math.abs(boarded.speed)/3);
-      boarded.heading=wrap(boarded.heading+steer*BOATS.turnRate*bite*Math.sign(boarded.speed||1)*dt);
-      boarded.position.x+=-Math.sin(boarded.heading)*boarded.speed*dt;
-      boarded.position.z+=-Math.cos(boarded.heading)*boarded.speed*dt;
-      boarded.position.x=Math.max(-540,Math.min(540,boarded.position.x));
-      boarded.position.z=Math.max(-430,Math.min(-284,boarded.position.z));
-      player.position.copy(boarded.position);
-      player.yaw=boarded.heading;
+
+  function update(dt, input) {
+    // Gentle bob for moored boats.
+    for (const b of boats) {
+      if (b.moored) {
+        b.mesh.position.y = -0.1 + Math.sin(performance.now() * 0.001 + b.x) * 0.08;
+      }
     }
-    for(const b of list){
-      b.position.y=BOATS.floatY+Math.sin(clock*1.1+b.position.x*0.05)*0.12;
-      b.body.position.copy(b.position);
-      b.body.rotation.set(Math.sin(clock*0.9+b.position.z*0.04)*0.03,b.heading,Math.sin(clock*0.7+b.position.x*0.03)*0.04);
-    }
+    if (!boarded) return;
+    const axis = input.axis();
+    if (axis.y > 0) boarded.speed = Math.min(BOAT.speed, boarded.speed + 9 * dt);
+    else boarded.speed = Math.max(0, boarded.speed - 6 * dt);
+    boarded.heading += axis.x * BOAT.turn * dt * (boarded.speed > 0.5 ? -1 : 0);
+    boarded.x += Math.sin(boarded.heading) * boarded.speed * dt;
+    boarded.z += Math.cos(boarded.heading) * boarded.speed * dt;
+    // Stay in the water: push back from the shore and the world edge.
+    if (boarded.z < WORLD.seaZ + 4) { boarded.z = WORLD.seaZ + 4; boarded.speed *= 0.3; }
+    if (boarded.z > 235) { boarded.z = 235; boarded.speed *= 0.3; }
+    boarded.x = Math.max(-195, Math.min(195, boarded.x));
+    boarded.mesh.position.set(boarded.x, -0.05, boarded.z);
+    boarded.mesh.rotation.y = boarded.heading;
+    const p = player.state.position;
+    p.set(boarded.x, 0.4, boarded.z);
   }
-  return{
-    list,
-    get boarded(){return boarded;},
-    nearest,board,leave,update,
+
+  return {
+    boats, board, leave, update, nearestBoat,
+    get boarded() { return boarded; },
   };
 }

@@ -1,135 +1,95 @@
-// Rico on foot: a welded body, a circle that slides along walls instead of
-// through them, and a stride driven by the speed he is actually doing.
-// The city owns the ground; every height comes from surfaceAt.
-import {Group,Mesh,MeshLambertMaterial,Vector3} from 'three';
-import {PALETTE,PLAYER,WORLD} from './config.js';
-import {firstHit,merge,tintedBox,unstick} from './geometry.js';
-const HIP=0.86,SHOULDER=0.5,HEAD=0.74;
-const MATERIAL=new MeshLambertMaterial({vertexColors:true,flatShading:true});
-const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
-function torso(){
-  return merge([
-    tintedBox(0.44,0.5,0.27,PALETTE.sea,0,0.27,0),
-    tintedBox(0.52,0.14,0.29,PALETTE.sea,0,0.5,0),
-    tintedBox(0.46,0.1,0.28,PALETTE.roof,0,0.02,0)]);
-}
-function head(){
-  return merge([
-    tintedBox(0.24,0.26,0.24,PALETTE.sand,0,0,0),
-    tintedBox(0.26,0.09,0.26,PALETTE.roof,0,0.16,0),
-    tintedBox(0.2,0.05,0.03,PALETTE.asphalt,0,0.02,-0.12)]);
-}
-function arm(){
-  return merge([
-    tintedBox(0.15,0.34,0.17,PALETTE.sea,0,-0.17,0),
-    tintedBox(0.12,0.28,0.13,PALETTE.sand,0,-0.46,0),
-    tintedBox(0.13,0.1,0.15,PALETTE.sand,0,-0.65,0)]);
-}
-function leg(){
-  return merge([
-    tintedBox(0.17,0.72,0.2,PALETTE.asphalt,0,-0.36,0),
-    tintedBox(0.19,0.14,0.3,PALETTE.roof,0,-0.79,-0.05)]);
-}
-function part(g){
-  const m=new Mesh(g,MATERIAL);
-  m.castShadow=true;
-  return m;
-}
-const POSES={jump:[0.55,-0.35,-0.85,-0.85,-0.1],dead:[0.22,0.12,0.45,0.3,0.38]};
-export function createPlayer({city,scene,spawn}){
-  const group=new Group(),body=part(torso()),headM=part(head());
-  const armL=part(arm()),armR=part(arm()),legL=part(leg()),legR=part(leg());
-  body.position.y=HIP;
-  headM.position.y=HEAD;
-  armL.position.set(-0.31,SHOULDER,0);
-  armR.position.set(0.31,SHOULDER,0);
-  legL.position.set(-0.13,HIP,0);
-  legR.position.set(0.13,HIP,0);
-  body.add(headM,armL,armR);
-  group.add(body,legL,legR);
-  scene.add(group);
-  const player={
-    group,position:new Vector3(spawn.x,city.surfaceAt(spawn.x,spawn.z),spawn.z),
-    velocity:new Vector3(),yaw:spawn.yaw,speed:0,state:'idle',
-    radius:PLAYER.radius,height:PLAYER.height,colliders:city.colliders,update(){},
+// Rico, the player on foot. A simple two-tone figure: dark jacket, jeans,
+// a cap. Walks with WASD relative to the camera, sprints with Shift,
+// and turns to face the direction he moves.
+import * as THREE from 'three';
+import { PLAYER } from './config.js';
+import { box, ball, place, groupAt } from './geometry.js';
+
+export function createPlayer(scene, city) {
+  const body = groupAt(-40, 0, 96);
+  const torso = box(0.9, 1.0, 0.5, 0x2c3e50);
+  place(torso, 0, 1.15, 0);
+  body.add(torso);
+  const head = ball(0.32, 0xd9a986);
+  place(head, 0, 1.95, 0);
+  body.add(head);
+  const cap = box(0.6, 0.16, 0.6, 0xc93c3c);
+  place(cap, 0, 2.2, 0);
+  body.add(cap);
+  const legL = box(0.32, 0.8, 0.36, 0x2e4a6a);
+  place(legL, -0.24, 0.4, 0);
+  body.add(legL);
+  const legR = box(0.32, 0.8, 0.36, 0x2e4a6a);
+  place(legR, 0.24, 0.4, 0);
+  body.add(legR);
+  const armL = box(0.26, 0.85, 0.3, 0x2c3e50);
+  place(armL, -0.6, 1.15, 0);
+  body.add(armL);
+  const armR = box(0.26, 0.85, 0.3, 0x2c3e50);
+  place(armR, 0.6, 1.15, 0);
+  body.add(armR);
+  scene.add(body);
+
+  const state = {
+    position: body.position,
+    heading: 0,
+    speed: 0,
+    health: PLAYER.health,
+    alive: true,
+    onGround: true,
   };
-  const from=new Vector3(),to=new Vector3();
-  let grounded=true,stride=0;
-  function slide(dx,dz){
-    const len=Math.hypot(dx,dz);
-    if(len<1e-7)return;
-    from.set(player.position.x,player.position.y+PLAYER.stepHeight,player.position.z);
-    to.set(from.x+dx,from.y,from.z+dz);
-    const hit=firstHit(from,to,city.colliders,PLAYER.radius);
-    if(hit>=1){player.position.x=to.x;player.position.z=to.z;return;}
-    const safe=Math.max(0,hit-0.002/len);
-    player.position.x=from.x+dx*safe;
-    player.position.z=from.z+dz*safe;
+  let walkPhase = 0;
+
+  function clampToWorld(p) {
+    p.x = Math.max(-WORLD_HALF(), Math.min(WORLD_HALF(), p.x));
+    p.z = Math.max(-WORLD_HALF(), Math.min(206, p.z));
   }
-  function pushOut(){
-    const s=unstick(player.position.x,player.position.z,PLAYER.radius,player.position.y+PLAYER.stepHeight,city.colliders);
-    player.position.x=s.x;
-    player.position.z=s.z;
+  function WORLD_HALF() { return 198; }
+
+  function update(dt, input, camYaw, driving, boating) {
+    if (!state.alive || driving || boating) return;
+    const axis = input.axis();
+    if (axis.x === 0 && axis.y === 0) {
+      state.speed = 0;
+      return;
+    }
+    const target = input.sprint() ? PLAYER.sprint : PLAYER.walk;
+    state.speed = target;
+    // Movement is relative to the camera yaw.
+    const sin = Math.sin(camYaw), cos = Math.cos(camYaw);
+    let mx = axis.x * cos - axis.y * sin;
+    let mz = axis.x * sin + axis.y * cos;
+    const len = Math.hypot(mx, mz) || 1;
+    mx /= len; mz /= len;
+    const p = state.position;
+    p.x += mx * target * dt;
+    p.z += mz * target * dt;
+    clampToWorld(p);
+    p.y = city.surfaceAt(p.x, p.z);
+    state.heading = Math.atan2(mx, mz);
+    body.rotation.y = state.heading;
+    // Little walk swing so he reads as moving, not sliding.
+    walkPhase += dt * target * 1.6;
+    const swing = Math.sin(walkPhase) * 0.35;
+    legL.rotation.x = swing;
+    legR.rotation.x = -swing;
+    armL.rotation.x = -swing * 0.8;
+    armR.rotation.x = swing * 0.8;
   }
-  function pose(dt){
-    const speed=player.speed,swing=0.45*Math.min(1.6,speed/PLAYER.walkSpeed);
-    stride=(stride+speed*2.2*dt)%(Math.PI*2);
-    const a=Math.sin(stride)*swing,fixed=POSES[player.state];
-    if(fixed){[legL.rotation.x,legR.rotation.x,armL.rotation.x,armR.rotation.x,body.rotation.x]=fixed;return;}
-    legL.rotation.x=a;legR.rotation.x=-a;armL.rotation.x=-a*0.8;armR.rotation.x=a*0.8;
-    body.rotation.x=-0.16*Math.min(1,speed/PLAYER.runSpeed);
+
+  function damage(amount) {
+    if (!state.alive) return;
+    state.health = Math.max(0, state.health - amount);
+    if (state.health <= 0) state.alive = false;
   }
-  function sync(){group.position.copy(player.position);group.rotation.y=player.yaw;}
-  player.update=function update(dt,input,cameraYaw){
-    if(player.state==='dead'){player.velocity.set(0,0,0);player.speed=0;pose(dt);sync();return;}
-    if(player.state==='driving'||player.state==='sailing'){group.visible=false;sync();return;}
-    group.visible=true;
-    const floor=city.surfaceAt(player.position.x,player.position.z);
-    if(player.position.y<=floor+0.02&&player.velocity.y<=0){player.position.y=floor;player.velocity.y=0;grounded=true;}
-    const fwd=(input.isDown('KeyW')?1:0)-(input.isDown('KeyS')?1:0);
-    const str=(input.isDown('KeyD')?1:0)-(input.isDown('KeyA')?1:0);
-    let wx=0,wz=0;
-    if(fwd||str){
-      const s=Math.sin(cameraYaw),c=Math.cos(cameraYaw);
-      wx=-s*fwd+c*str;
-      wz=-c*fwd-s*str;
-      const l=Math.hypot(wx,wz);
-      wx/=l;wz/=l;
-    }
-    const running=input.isDown('ShiftLeft')||input.isDown('ShiftRight');
-    const top=running?PLAYER.runSpeed:PLAYER.walkSpeed;
-    const rate=wx||wz?PLAYER.acceleration:PLAYER.deceleration;
-    const cx=wx*top-player.velocity.x,cz=wz*top-player.velocity.z,ch=Math.hypot(cx,cz),step=rate*dt;
-    if(ch>step&&ch>1e-6){player.velocity.x+=(cx/ch)*step;player.velocity.z+=(cz/ch)*step;}
-    else{player.velocity.x=wx*top;player.velocity.z=wz*top;}
-    if(grounded&&input.wasPressed('Space')){player.velocity.y=PLAYER.jumpSpeed;grounded=false;}
-    const sx=player.position.x,sz=player.position.z;
-    slide(player.velocity.x*dt,0);
-    slide(0,player.velocity.z*dt);
-    pushOut();
-    const here=city.surfaceAt(player.position.x,player.position.z);
-    if(grounded){
-      if(here>player.position.y+PLAYER.stepHeight){
-        player.position.x=sx;player.position.z=sz;
-        player.velocity.x=0;player.velocity.z=0;
-      }
-      else if(here>=player.position.y-PLAYER.stepHeight)player.position.y=here;
-      else grounded=false;
-    }
-    if(!grounded){
-      player.velocity.y-=WORLD.gravity*dt;player.position.y+=player.velocity.y*dt;
-      const g=city.surfaceAt(player.position.x,player.position.z);
-      if(player.position.y<=g&&player.velocity.y<=0){player.position.y=g;player.velocity.y=0;grounded=true;}
-    }
-    player.speed=Math.hypot(player.velocity.x,player.velocity.z);
-    player.state=!grounded?'jump':player.speed>PLAYER.runSpeed*0.55?'run':player.speed>0.15?'walk':'idle';
-    if(player.speed>0.2){
-      const facing=Math.atan2(-player.velocity.x,-player.velocity.z),turn=PLAYER.turnRate*dt;
-      player.yaw+=Math.max(-turn,Math.min(turn,wrap(facing-player.yaw)));
-    }
-    pose(dt);
-    sync();
-  };
-  sync();
-  return player;
+
+  function heal(amount) {
+    state.health = Math.min(PLAYER.health, state.health + amount);
+  }
+
+  function teleport(x, z) {
+    state.position.set(x, city.surfaceAt(x, z), z);
+  }
+
+  return { body, state, update, damage, heal, teleport };
 }
