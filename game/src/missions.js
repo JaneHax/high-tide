@@ -9,6 +9,7 @@ garage3: [LANDMARKS.garage.x - 16, LANDMARKS.garage.z + 18],
 marina2: [-64, 38],
 market2: [LANDMARKS.market.x + 18, LANDMARKS.market.z + 18],
 market3: [LANDMARKS.market.x - 18, LANDMARKS.market.z + 18],
+market4: [LANDMARKS.market.x + 34, LANDMARKS.market.z + 18],
 };
 function makeBeacon(color, height = 15, radius = 2.2) {
 const g = new THREE.Group();
@@ -111,6 +112,14 @@ steps: [
 ],
 reward: 520, rep: 90,
 outro: 'Elio: "Fare paid, no names. Good crossing, Rico."',
+},
+toll_run: { title: 'TOLL RUN', giver: 'ELIO', color: MISSION_COLORS.job, start: 'market4',
+brief: 'The north gate takes its cut in cash, and Elio is short this week.',
+steps: [
+{ text: 'Pay the north gate toll and hand over the manifest', target: () => [258, -110], radius: 8, mode: 'car', check: () => g().cash >= 200, need: 'The gate wants $200 cash — come back with the toll.' },
+],
+reward: 430, rep: 70,
+outro: 'Elio: "Gate paid, manifest stamped. Nobody looks twice."',
 },
 }; } buildStartMarkers() { for (const [id, def] of Object.entries(this.defs)) {
 const p = START_POINTS[def.start];
