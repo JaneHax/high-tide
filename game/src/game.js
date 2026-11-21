@@ -106,6 +106,8 @@ this.boat.update(dt, throttle, steer, this.world); } this.trigger = fire; this.p
 playerOnFoot: this.mode === 'foot',
 playerCar: this.car,
 playerAlive: p.alive,
+heading: this.mode === 'car' ? this.car.yaw : this.mode === 'boat' ? this.boat.yaw : p.yaw,
+notify: (t, k) => this.hud.toast(t, k),
 onDamage: (n) => this.damagePlayer(n),
 }); this.wanted = this.police.stars; this.traffic.update(dt, p, this.car); this.crowd.update(dt, p.pos, this.car, this.wanted); this.bridge.update(dt); this.missions.update(dt); this.updateStorm(dt); this.updatePrompts(); this.updateEffects(dt); this.updateCamera(dt); this.hud.update(dt, this); if (this.mode === 'car') this.audio.setEngine(clamp(Math.abs(this.car.speed) / this.car.spec.maxSpeed, 0, 1), true, 'car'); else if (this.mode === 'boat') this.audio.setEngine(clamp(Math.abs(this.boat.speed) / 24, 0, 1), true, 'boat'); else this.audio.setEngine(0, false); this.audio.updateSiren(); this.audio.setRain(this.stormLevel); if (p.health < p.maxHealth && this.elapsed - this.lastDamage > 11) p.heal(dt * 2.2); this.autosaveTimer += dt; if (this.autosaveTimer > 22) { this.autosaveTimer = 0; this.saveGame(); } if (this.wanted >= 1) this.stormLevel = Math.min(1, this.stormLevel + dt * 0.008); } checkCarHits() {
 const car = this.car; for (const ped of this.crowd.peds) { if (!ped.alive) continue;

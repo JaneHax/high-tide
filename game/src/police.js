@@ -5,8 +5,18 @@ import { buildHumanoid, animateHumanoid } from './people.js';
 import { box, mesh, clamp, lerp, dampAngle, angleDelta, glowTexture, rand, TAU } from './utils.js';
 const std = (color, roughness = 0.8, metalness = 0.02) => new THREE.MeshStandardMaterial({ color, roughness, metalness });
 const glow = (color, scale) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); s.scale.set(scale, scale, 1); return s; };
-export class Police { constructor(scene, world, audio) { this.scene = scene; this.world = world; this.audio = audio; this.stars = 0; this.cruisers = []; this.officers = []; this.tracers = []; this.evade = 0; this.spawnTimer = 0; this.chopper = null; this.buildOfficerPool(); } buildOfficerPool() { for (let i = 0; i < 8; i++) {
-const rig = buildHumanoid({ shirt: 0x25445c, pants: 0x1d2a36, cap: true, capColor: 0x203a50, badge: true, skin: 0xb9815d }); rig.group.visible = false; rig.group.scale.setScalar(1.02); this.scene.add(rig.group); this.officers.push({ rig, active: false, alive: true, x: 0, z: 0, yaw: 0, phase: 0, shootTimer: 1 + Math.random(), health: 3, car: null, aim: 0 }); } } get level() { return this.stars; } addStar(n = 1, reason = '') { this.stars = clamp(this.stars + n, 0, 5); this.evade = 0; if (this.stars > 0 && this.audio) this.audio.policeRadio(); return this.stars; } setStars(n) { this.stars = clamp(n, 0, 5); this.evade = 0; } clear() { this.stars = 0; this.evade = 0; for (const c of this.cruisers) this.removeCruiser(c); this.cruisers.length = 0; for (const o of this.officers) { o.active = false; o.rig.group.visible = false; } if (this.chopper) { this.scene.remove(this.chopper.group); this.chopper = null; } } spawnPoint(px, pz) {
+export class Police { constructor(scene, world, audio) { this.scene = scene; this.world = world; this.audio = audio; this.stars = 0; this.cruisers = []; this.officers = []; this.tracers = []; this.evade = 0; this.spawnTimer = 0; this.chopper = null; this.block = null; this.buildOfficerPool(); } buildOfficerPool() { for (let i = 0; i < 8; i++) {
+const rig = buildHumanoid({ shirt: 0x25445c, pants: 0x1d2a36, cap: true, capColor: 0x203a50, badge: true, skin: 0xb9815d }); rig.group.visible = false; rig.group.scale.setScalar(1.02); this.scene.add(rig.group); this.officers.push({ rig, active: false, alive: true, x: 0, z: 0, yaw: 0, phase: 0, shootTimer: 1 + Math.random(), health: 3, car: null, aim: 0 }); } } get level() { return this.stars; } addStar(n = 1, reason = '') { this.stars = clamp(this.stars + n, 0, 5); this.evade = 0; if (this.stars > 0 && this.audio) this.audio.policeRadio(); return this.stars; } setStars(n) { this.stars = clamp(n, 0, 5); this.evade = 0; } clear() { this.stars = 0; this.evade = 0; for (const c of this.cruisers) this.removeCruiser(c); this.cruisers.length = 0; this.clearBlock(); for (const o of this.officers) { o.active = false; o.rig.group.visible = false; } if (this.chopper) { this.scene.remove(this.chopper.group); this.chopper = null; } } clearBlock() { if (!this.block) return; for (const c of this.block.cars) this.removeCruiser(c); this.block = null; } spawnRoadblock(px, pz, yaw) {
+const fx = px - Math.sin(yaw) * 46, fz = pz - Math.cos(yaw) * 46;
+let road = null, bd = 24;
+for (const r of ROADS) { const d = r.axis === 'x' ? Math.abs(fz - r.pos) : Math.abs(fx - r.pos);
+if (d < bd && fx > r.from && fx < r.to && fz > r.from && fz < r.to) { bd = d; road = r; } } if (!road) return null;
+const along = road.axis === 'x' ? clamp(fx, road.from + 14, road.to - 14) : clamp(fz, road.from + 14, road.to - 14);
+const cars = [];
+for (const s of [-2.6, 2.6]) {
+const x = road.axis === 'x' ? along + s : road.pos, z = road.axis === 'x' ? road.pos : along + s;
+const car = new Car(this.scene, 'police', x, z, road.axis === 'x' ? 0 : Math.PI / 2); car.stationary = true; car.ai = false; car.addHeadlight(); cars.push(car); }
+this.deployOfficers(cars[0]); this.block = { cars }; return this.block; } spawnPoint(px, pz) {
 const options = []; for (const r of ROADS) { if (r.axis === 'z' && Math.abs(r.pos) < 10) continue; for (let t = r.from + 20; t < r.to - 20; t += 34) {
 const x = r.axis === 'z' ? r.pos + 3 : t, z = r.axis === 'z' ? t : r.pos + 3, d = Math.hypot(x - px, z - pz); if (d > 45 && d < 95 && Math.abs(z) > 30) options.push([x, z]); } } if (!options.length) return [px + 70, pz + 70]; return options[(Math.random() * options.length) | 0]; } spawnCruiser(px, pz) {
 const [x, z] = this.spawnPoint(px, pz);
@@ -24,8 +34,10 @@ const cone = mesh(new THREE.ConeGeometry(7, 60, 18, 1, true), new THREE.MeshBasi
 const geo = new THREE.BufferGeometry().setFromPoints([from, to]);
 const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending });
 const line = new THREE.Line(geo, mat); this.scene.add(line); this.tracers.push({ line, life: 0.12 }); } update(dt, ctx) {
-const { playerPos, playerOnFoot, playerCar, playerAlive, onDamage } = ctx; for (let i = this.tracers.length - 1; i >= 0; i--) {
-const t = this.tracers[i]; t.life -= dt; t.line.material.opacity = Math.max(0, t.life / 0.12) * 0.85; if (t.life <= 0) { this.scene.remove(t.line); t.line.geometry.dispose(); t.line.material.dispose(); this.tracers.splice(i, 1); } } if (this.stars <= 0) { for (const c of this.cruisers) this.removeCruiser(c); this.cruisers.length = 0; for (const o of this.officers) { o.active = false; o.rig.group.visible = false; } if (this.chopper) { this.scene.remove(this.chopper.group); this.chopper = null; } if (this.audio) this.audio.sirenStop(); return; } this.spawnTimer -= dt;
+const { playerPos, playerOnFoot, playerCar, playerAlive, onDamage, heading = 0, notify } = ctx; for (let i = this.tracers.length - 1; i >= 0; i--) {
+const t = this.tracers[i]; t.life -= dt; t.line.material.opacity = Math.max(0, t.life / 0.12) * 0.85; if (t.life <= 0) { this.scene.remove(t.line); t.line.geometry.dispose(); t.line.material.dispose(); this.tracers.splice(i, 1); } } if (this.block && this.stars < 3) this.clearBlock();
+if (this.stars >= 3 && !this.block && this.spawnRoadblock(playerPos.x, playerPos.z, heading) && notify) notify('Roadblock ahead. Two cruisers across the lane.', 'warn');
+if (this.stars <= 0) { for (const c of this.cruisers) this.removeCruiser(c); this.cruisers.length = 0; for (const o of this.officers) { o.active = false; o.rig.group.visible = false; } if (this.chopper) { this.scene.remove(this.chopper.group); this.chopper = null; } if (this.audio) this.audio.sirenStop(); return; } this.spawnTimer -= dt;
 const targetCruisers = Math.min(this.stars, 4); if (this.cruisers.length < targetCruisers && this.spawnTimer <= 0) { this.spawnCruiser(playerPos.x, playerPos.z); this.spawnTimer = 3.5; } if (this.cruisers.length > targetCruisers + 1) {
 const c = this.cruisers.pop(); this.removeCruiser(c); }
 let nearest = Infinity; for (const car of this.cruisers) {
@@ -45,6 +57,6 @@ const from = ch.group.position.clone(), to = new THREE.Vector3(playerPos.x, 1.2,
 let best = null, bd = maxDist;
 const ray = new THREE.Ray(origin, dir); for (const o of this.officers) { if (!o.active || !o.alive) continue;
 const p = new THREE.Vector3(o.x, 1.1, o.z), dist = ray.distanceToPoint(p); if (dist < 0.8) {
-const t = origin.distanceTo(p); if (t < bd) { bd = t; best = { type: 'officer', officer: o, point: p, dist: t }; } } } for (const c of this.cruisers) {
+const t = origin.distanceTo(p); if (t < bd) { bd = t; best = { type: 'officer', officer: o, point: p, dist: t }; } } } for (const c of [...this.cruisers, ...(this.block?.cars || [])]) {
 const p = new THREE.Vector3(c.pos.x, 0.9, c.pos.z); if (ray.distanceToPoint(p) < 1.8) {
 const t = origin.distanceTo(p); if (t < bd) { bd = t; best = { type: 'cruiser', car: c, point: p, dist: t }; } } } return best; } damageOfficer(o, amount = 1) { o.health -= amount; if (o.health <= 0) { o.alive = false; o.rig.group.rotation.z = 0.3; if (this.audio) this.audio.hitConfirm(); return true; } return false; } }
