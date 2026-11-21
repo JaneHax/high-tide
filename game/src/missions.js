@@ -4,6 +4,11 @@ import { mesh, glowTexture, textTexture, clamp, formatTime, TAU } from './utils.
 const START_POINTS = { garage: [LANDMARKS.garage.x, LANDMARKS.garage.z + 18],
 marina: [-78, 38],
 market: [LANDMARKS.market.x, LANDMARKS.market.z + 18],
+garage2: [LANDMARKS.garage.x + 16, LANDMARKS.garage.z + 18],
+garage3: [LANDMARKS.garage.x - 16, LANDMARKS.garage.z + 18],
+marina2: [-64, 38],
+market2: [LANDMARKS.market.x + 18, LANDMARKS.market.z + 18],
+market3: [LANDMARKS.market.x - 18, LANDMARKS.market.z + 18],
 };
 function makeBeacon(color, height = 15, radius = 2.2) {
 const g = new THREE.Group();
@@ -66,6 +71,47 @@ steps: [
 reward: 420, rep: 70,
 outro: 'Elio: "Not bad for a courier. The quay remembers."',
 },
+repo_run: { title: 'REPO RUN', giver: 'MARA', color: MISSION_COLORS.job, start: 'garage2',
+brief: 'A sedan the Guardia impounded is sitting loose in the terminal yard.',
+steps: [
+{ text: 'Drive the sedan onto the terminal weighbridge', target: () => [LANDMARKS.terminal.x + 10, LANDMARKS.terminal.z + 34], radius: 9, mode: 'car', dwell: 1.2, check: () => g().mode === 'car', need: 'You need to be inside a car — walk back to the lot and take one.' },
+],
+reward: 380, rep: 60,
+outro: 'Mara: "Plates are swapped. The yard never saw a thing."',
+},
+last_light: { title: 'LAST LIGHT', giver: 'ELIO', color: MISSION_COLORS.race, start: 'market2',
+brief: 'Elio has a buyer on the north quay and the light is already going.',
+steps: [
+{ text: 'Run the envelope to the north quay before the light dies', target: () => [-42, -152], radius: 9, mode: 'car', time: 48, onEnter: () => g().notify('Elio: "Forty-eight seconds. The buyer will not wait."', 'warn'), need: 'The clock is running — get in a car and drive.' },
+],
+reward: 460, rep: 80,
+outro: 'Elio: "On time. The buyer likes that in a courier."',
+},
+clean_hands: { title: 'CLEAN HANDS', giver: 'MARA', color: MISSION_COLORS.story, start: 'garage3',
+brief: 'The terminal gate will not open for a car the Guardia is hunting.',
+steps: [
+{ text: 'Reach the terminal gate with a clean plate', target: () => [LANDMARKS.terminal.x - 6, LANDMARKS.terminal.z + 30], radius: 10, mode: 'car', check: () => g().police.stars === 0, need: 'Guardia still has you marked — lose every wanted star first.' },
+],
+reward: 540, rep: 95,
+outro: 'Mara: "Clean plate, clean gate. That is the whole trick."',
+},
+split_take: { title: 'SPLIT TAKE', giver: 'SOMBRA CREW', color: MISSION_COLORS.heat, start: 'market3',
+brief: 'Two halves of one payout: the bag at the market, the launch at the east pier.',
+steps: [
+{ text: 'Collect the bag behind the fish market', target: () => [LANDMARKS.market.x - 16, LANDMARKS.market.z + 16], radius: 7, mode: 'car', dwell: 0.9, onEnter: () => { g().police.setStars(2); g().notify('Sombra: "Bag is hot. Guardia saw the handoff."', 'warn'); } },
+{ text: 'Get the bag to the launch at the east pier', target: () => [250, 30], radius: 11, mode: 'car', dwell: 1.4 },
+],
+reward: 980, rep: 160,
+outro: 'Sombra: "Both halves, one payment at the end. The crew remembers."',
+},
+harbor_ferry: { title: 'HARBOR FERRY', giver: 'ELIO', color: MISSION_COLORS.boat, start: 'marina2',
+brief: 'A fare is waiting on open water and will not set foot on a quay.',
+steps: [
+{ text: 'Bring the launch alongside the mid-channel buoy', target: () => [0, 10], radius: 7, mode: 'boat', dwell: 1.2, check: () => g().mode === 'boat', need: 'This fare only boards from the water — take the Sombra launch.' },
+],
+reward: 520, rep: 90,
+outro: 'Elio: "Fare paid, no names. Good crossing, Rico."',
+},
 }; } buildStartMarkers() { for (const [id, def] of Object.entries(this.defs)) {
 const p = START_POINTS[def.start];
 const marker = makeBeacon(def.color, 11, 1.7); marker.position.set(p[0], 0.4, p[1]); this.scene.add(marker); this.startMarkers.set(id, marker); } this.targetMarker = makeBeacon(MISSION_COLORS.story, 18, 2.5); this.targetMarker.visible = false; this.scene.add(this.targetMarker); this.refreshMarkers(); } available(id) {
@@ -98,4 +144,7 @@ const def = this.defs[this.active];
 const step = def.steps[this.stepIndex];
 const target = this.stepTarget();
 let dist = null; if (target) {
-const ap = this.game.activePos; dist = Math.hypot(ap.x - target[0], ap.z - target[1]); } return { title: def.title, text: step.text, dist, color: def.color, timer: step.time || (this.active === 'quay_race' && this.stepIndex >= 1) ? this.timer : null }; } save() { return { active: this.active, step: this.stepIndex, completed: [...this.completed], payouts: [...this.payouts] }; } load(data) { if (!data) return; this.completed = new Set(data.completed || []); this.payouts = new Set(data.payouts || []); this.refreshMarkers(); if (data.active && this.defs[data.active] && !this.completed.has(data.active)) { this.active = data.active; this.stepIndex = Math.min(data.step || 0, this.defs[data.active].steps.length - 1); this.enterStep(); } } refreshMarkers() { for (const [id, marker] of this.startMarkers) { marker.visible = this.available(id); } } }
+const ap = this.game.activePos; dist = Math.hypot(ap.x - target[0], ap.z - target[1]); }
+let text = step.text; if (target && dist < (step.radius ?? 7) && step.need) {
+const met = (!step.mode || this.game.mode === step.mode) && (!step.check || step.check()); if (!met) text = step.need; }
+return { title: def.title, text, dist, color: def.color, timer: step.time || (this.active === 'quay_race' && this.stepIndex >= 1) ? this.timer : null }; } save() { return { active: this.active, step: this.stepIndex, completed: [...this.completed], payouts: [...this.payouts] }; } load(data) { if (!data) return; this.completed = new Set(data.completed || []); this.payouts = new Set(data.payouts || []); this.refreshMarkers(); if (data.active && this.defs[data.active] && !this.completed.has(data.active)) { this.active = data.active; this.stepIndex = Math.min(data.step || 0, this.defs[data.active].steps.length - 1); this.enterStep(); } } refreshMarkers() { for (const [id, marker] of this.startMarkers) { marker.visible = this.available(id); } } }
