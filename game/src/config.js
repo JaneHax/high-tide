@@ -77,6 +77,11 @@ fireRate:0.18,
 ammo:12,
 reload:1.25,
 };
+export const WEAPONS = { pistol:{ label:'GUARDIA 9',damage:14,fireInterval:0.22,magSize:12,spread:0.012,range:90,pellets:1,reserve:96,auto:false },
+shotgun:{ label:'BREACHER',damage:9,fireInterval:0.85,magSize:6,spread:0.08,range:34,pellets:8,reserve:48,auto:false },
+smg:{ label:'SOMBRA SMG',damage:8,fireInterval:0.09,magSize:30,spread:0.05,range:55,pellets:1,reserve:180,auto:true },
+rifle:{ label:'FARO RIFLE',damage:34,fireInterval:1.1,magSize:5,spread:0.004,range:220,pellets:1,reserve:30,auto:false },
+};
 export const ECONOMY = { respray:180,
 clinic:120,
 racePrize:420,
