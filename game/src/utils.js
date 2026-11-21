@@ -6,7 +6,7 @@ export const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 export const pick = (arr) => arr[(Math.random() * arr.length) | 0];
 export const TAU = Math.PI * 2;
 export function angleDelta(a, b) {
-let d = (b - a) % TAU; if (d > Math.PI) d -= TAU; if (d < -Math.PI) d += TAU; return d; }
+const d = (b - a) % TAU; return d > Math.PI ? d - TAU : d < -Math.PI ? d + TAU : d; }
 export function dampAngle(a, b, k, dt) { return a + angleDelta(a, b) * (1 - Math.exp(-k * dt)); }
 export function mulberry32(seed) {
 let s = seed >>> 0; return function () { s = (s + 0x6d2b79f5) >>> 0;
@@ -25,7 +25,7 @@ g.fillRect(Math.random() * w, Math.random() * h, 2, 2); } g.fillStyle = 'rgba(23
 export function concreteTexture() { return canvasTexture(256, 256, (g, w, h) => { g.fillStyle = '#b9ad98'; g.fillRect(0, 0, w, h); for (let i = 0; i < 1200; i++) {
 const v = 150 + Math.random() * 40;
 g.fillStyle = `rgba(${v},${v - 8},${v - 22},${Math.random() * 0.25})`;
-g.fillRect(Math.random() * w, Math.random() * h, 3, 3); } g.strokeStyle = 'rgba(90,80,68,0.25)'; g.lineWidth = 2; for (let x = 0; x <= w; x += 64) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); } for (let y = 0; y <= h; y += 64) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); } }, [8, 8]); }
+g.fillRect(Math.random() * w, Math.random() * h, 3, 3); } g.strokeStyle = 'rgba(90,80,68,0.25)'; g.lineWidth = 2; for (let i = 0; i <= w; i += 64) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, h); g.stroke(); g.beginPath(); g.moveTo(0, i); g.lineTo(w, i); g.stroke(); } }, [8, 8]); }
 export function glowTexture() { return canvasTexture(128, 128, (g, w, h) => {
 const grad = g.createRadialGradient(w / 2, h / 2, 2, w / 2, h / 2, w / 2); grad.addColorStop(0, 'rgba(255,255,255,1)'); grad.addColorStop(0.25, 'rgba(255,236,190,0.85)'); grad.addColorStop(0.6, 'rgba(255,190,120,0.25)'); grad.addColorStop(1, 'rgba(255,180,100,0)'); g.fillStyle = grad; g.fillRect(0, 0, w, h); }); }
 export function cloudTexture(seed = 1) { return canvasTexture(256, 128, (g, w, h) => { g.clearRect(0, 0, w, h);
