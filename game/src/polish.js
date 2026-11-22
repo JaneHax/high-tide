@@ -16,7 +16,7 @@ const waitForGame = () => {
     <div class="pulse-head"><span class="pulse-dot"></span><span>PORT STATUS</span><b id="pulseClock">18:42</b></div>
     <div class="pulse-main"><strong id="pulseLabel">CALM WATER</strong><span id="pulseZone">MARINA</span></div>
     <div class="pulse-track"><i id="pulseStorm"></i></div>
-    <div class="pulse-foot"><span id="pulseJobs">0 / 10 JOBS</span><span id="pulseRep">RUNNER</span></div>`;
+    <div class="pulse-foot"><span id="pulseJobs">0 / 10 JOBS</span><span id="pulseBridge">DECK LOWERED</span><span id="pulseRep">RUNNER</span></div>`;
   hud.appendChild(pulse);
 
   const saveChip = document.createElement('div');
@@ -46,12 +46,15 @@ const waitForGame = () => {
     const pulseStorm = document.getElementById('pulseStorm');
     const pulseZone = document.getElementById('pulseZone');
     const pulseJobs = document.getElementById('pulseJobs');
+    const pulseBridge = document.getElementById('pulseBridge');
     const pulseRep = document.getElementById('pulseRep');
     const pulseClock = document.getElementById('pulseClock');
+    const bridgeStatus = game.bridge?.statusText || 'DECK LOWERED';
     if (pulseLabel) pulseLabel.textContent = label;
     if (pulseStorm) pulseStorm.style.width = `${storm}%`;
     if (pulseZone) pulseZone.textContent = game.zoneName || 'PUERTO SOL';
     if (pulseJobs) pulseJobs.textContent = `${game.missions.completed.size} / ${Object.keys(game.missions.defs).length} JOBS`;
+    if (pulseBridge) pulseBridge.textContent = bridgeStatus;
     if (pulseRep) pulseRep.textContent = repTitle(game.rep);
     if (pulseClock) pulseClock.textContent = document.getElementById('clock')?.textContent || '18:42';
     saveChip.textContent = game.state === 'playing' ? (game.autosaveTimer > 17 ? 'AUTOSAVE READY' : 'SHIFT SAVED') : 'AUTOSAVE READY';
