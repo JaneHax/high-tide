@@ -13,5 +13,5 @@
 @media(max-width:520px){.guide-header h2{font-size:28px}.guide-close{font-size:0}.guide-close b{font-size:10px}.guide-columns,.guide-fact-grid{grid-template-columns:1fr}.guide-stat-grid{grid-template-columns:repeat(2,1fr)}.guide-mission-route{grid-template-columns:1fr;gap:5px}.guide-controls{gap:8px;font-size:8px}}
 
 /* Keep keyboard focus visible without adding motion for people who ask for less. */
-.harbor-guide :where(button,[tabindex]):focus-visible{outline:2px solid var(--gold);outline-offset:3px;box-shadow:0 0 0 5px rgba(10,21,25,.9)}
-@media(prefers-reduced-motion:reduce){.harbor-guide *,.harbor-guide *::before,.harbor-guide *::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;scroll-behavior:auto !important;transition-duration:.01ms !important}}
+.harbor-guide :where(button,[tabindex],[role="tab"]):focus-visible{outline:2px solid var(--gold);outline-offset:3px;box-shadow:0 0 0 5px rgba(10,21,25,.9)}
+@media(prefers-reduced-motion:reduce){.harbor-guide *,.harbor-guide *::before,.harbor-guide *::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;scroll-behavior:auto !important;transition-duration:.01ms !important}.harbor-guide{scroll-behavior:auto}}
