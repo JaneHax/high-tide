@@ -1,3 +1,5 @@
+import { HarborGuide } from './harborGuide.js';
+
 const waitForGame = () => {
   const game = window.__HT_GAME;
   if (!game) {
@@ -8,6 +10,8 @@ const waitForGame = () => {
   const hud = document.getElementById('hud');
   const dispatch = document.getElementById('dispatch');
   if (!hud || !dispatch) return;
+
+  game.harborGuide = new HarborGuide(game);
 
   const pulse = document.createElement('section');
   pulse.id = 'cityPulse';
