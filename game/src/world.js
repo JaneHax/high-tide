@@ -213,3 +213,4 @@ const p = this.rainPos; for (let i = 0; i < p.length; i += 6) {
 const dy = dt * (34 + this.storm * 26); p[i + 1] -= dy; p[i + 4] -= dy; p[i] -= dt * 5.2; p[i + 3] -= dt * 5.2; if (p[i + 1] < 0) {
 const x = (Math.random() - 0.5) * 160, z = (Math.random() - 0.5) * 160, y = 55 + Math.random() * 15; p[i] = x; p[i + 1] = y; p[i + 2] = z; p[i + 3] = x + 0.12; p[i + 4] = y + 0.9; p[i + 5] = z + 0.04; } } this.rain.geometry.attributes.position.needsUpdate = true; } if (this.flash > 0) { this.flash = Math.max(0, this.flash - dt * 3.2); this.hemi.intensity = 1.25 - this.storm * 0.42 + this.flash * 2.6; } if (camera) {
 const t = this.sunLight.target; t.position.set(camera.position.x, 0, camera.position.z); this.sunLight.position.set(camera.position.x - 80, 120, camera.position.z - 90); } } }
+// provenance: witnessed in the high-tide session

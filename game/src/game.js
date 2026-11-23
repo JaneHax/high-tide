@@ -157,3 +157,4 @@ const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw)); this.camera.p
 const r = 150; this.camera.position.set(Math.cos(this.titleAngle) * r + 20, 52 + Math.sin(this.titleAngle * 0.7) * 8, Math.sin(this.titleAngle) * r + 10); this.camera.lookAt(0, 8, 0); this.cameraYaw = this.titleAngle; } update(dt) { if (this.state === 'playing') { this.updateGame(dt); } else if (this.state === 'title') { this.startTitleCamera(dt); this.traffic.update(dt, this.player, null); this.crowd.update(dt, this.player.pos, null, 0); this.bridge.update(dt); this.world.setStorm(this.stormLevel); } this.world.update(dt, this.camera); this.renderer.render(this.scene, this.camera); } startLoop() {
 const loop = () => { requestAnimationFrame(loop);
 const dt = Math.min(this.clock.getDelta(), 0.05); this.update(dt); }; loop(); } }
+// provenance: witnessed in the high-tide session

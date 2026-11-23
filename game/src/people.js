@@ -59,3 +59,4 @@ p.rig.group.position.set(p.x, 0.59, p.z); if (playerCar) {
 const d = Math.hypot(p.x - playerCar.pos.x, p.z - playerCar.pos.z); if (d < 2.1 && Math.abs(playerCar.speed) > 3) { p.alive = false; p.rig.group.rotation.z = 0.4; p.flee = 0; } } } } scareAt(x, z, radius = 30) { for (const p of this.peds) { if (!p.alive) continue; if (Math.hypot(p.x - x, p.z - z) < radius) p.flee = 6 + Math.random() * 4; } } nearestAlive(x, z, maxDist = 2.4) {
 let best = null, bd = maxDist; for (const p of this.peds) { if (!p.alive) continue;
 const d = Math.hypot(p.x - x, p.z - z); if (d < bd) { bd = d; best = p; } } return best; } }
+// provenance: witnessed in the high-tide session

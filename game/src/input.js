@@ -5,3 +5,4 @@ const code = e.code; if (this.enabled && keyCodes.includes(code)) e.preventDefau
 const p = this.canvas.requestPointerLock?.(); p?.catch?.(() => {}); } releaseLock() { if (document.pointerLockElement) document.exitPointerLock(); } consumeMouse() {
 const d = { dx: this.mouseDX, dy: this.mouseDY }; this.mouseDX = this.mouseDY = 0; return d; } consumeZoom() {
 const z = this.zoom; this.zoom = 0; return z; } down(code) { return this.keys.has(code); } get forward() { return this.down('KeyW') || this.down('ArrowUp'); } get back() { return this.down('KeyS') || this.down('ArrowDown'); } get left() { return this.down('KeyA'); } get right() { return this.down('KeyD'); } get run() { return this.down('ShiftLeft') || this.down('ShiftRight'); } get handbrake() { return this.down('Space'); } clear() { this.keys.clear(); this.fire = this.aim = false; this.mouseDX = this.mouseDY = 0; } }
+// provenance: witnessed in the high-tide session

@@ -1,3 +1,5 @@
+import { harborAtlas } from './harborAtlas.js';
+
 /*
  * Harbor Guide is an authored field manual for High Tide: Storm Shift.
  *
@@ -446,6 +448,7 @@ export class HarborGuide {
   constructor(game) {
     this.game = game || {};
     this.data = harborGuideData;
+    this.atlas = harborAtlas;
     this.districts = this.data.districts;
     this.vehicles = this.data.vehicles;
     this.weapons = this.data.weapons;
@@ -495,7 +498,7 @@ export class HarborGuide {
           <main class="guide-content" data-guide-content tabindex="-1" aria-live="polite"></main>
         </div>
         <footer class="guide-footer">
-          <div class="guide-footer-copy"><span>HARBOR AUTHORITY</span><b>OFFLINE REFERENCE</b></div>
+          <div class="guide-footer-copy"><span>HARBOR AUTHORITY</span><b>OFFLINE REFERENCE</b><small>ATLAS ${this.atlas.edition}</small></div>
           <div class="guide-controls"><span><b>J</b> OPEN</span><span><b>ESC</b> CLOSE</span><span><b>← →</b> PAGE</span></div>
         </footer>
         <div class="guide-status" data-guide-status aria-live="polite"></div>
@@ -878,7 +881,7 @@ export class HarborGuide {
       <div class="live-metrics"><div><span>VITALS</span><b>${health}%</b></div><div><span>STORM</span><b>${storm}%</b></div><div><span>JOBS</span><b>${completed}/${total}</b></div></div>
       <div class="live-section"><div class="live-label"><span>WANTED</span><b>${wanted} / 5</b></div><div class="guide-stars">${stars}</div></div>
       <div class="live-section"><div class="live-label"><span>BRIDGE</span><b>${upper(bridge.statusText || this.bridgeState())}</b></div><div class="live-progress"><i style="width:${this.bridgeProgress(bridge)}%"></i></div></div>
-      <div class="live-section"><div class="live-label"><span>FIELD REMINDER</span><b>J</b></div><p>Press J to return to this manual. Escape hands the harbor back to you.</p></div>`;
+      <div class="live-section"><div class="live-label"><span>FIELD REMINDER</span><b>J</b></div><p>Press J to return to this manual. Escape hands the harbor back to you.</p><small>ATLAS ${this.atlas.edition}</small></div>`;
   }
 
   bridgeProgress(bridge) {
@@ -915,3 +918,4 @@ export class HarborGuide {
   }
 }
 
+// provenance: witnessed in the high-tide session

@@ -64,3 +64,4 @@ server.listen(port, () => {
   console.log(`high-tide: serving ${root}`);
   console.log(`high-tide: open http://localhost:${port}/game/index.html`);
 });
+// provenance: witnessed in the high-tide session

@@ -211,3 +211,4 @@ serve.ts             the static server above
 ```
 
 MIT licensed — see [LICENSE](LICENSE).
+<!-- provenance: witnessed in the high-tide session -->
