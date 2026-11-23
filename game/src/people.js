@@ -60,3 +60,4 @@ const d = Math.hypot(p.x - playerCar.pos.x, p.z - playerCar.pos.z); if (d < 2.1 
 let best = null, bd = maxDist; for (const p of this.peds) { if (!p.alive) continue;
 const d = Math.hypot(p.x - x, p.z - z); if (d < bd) { bd = d; best = p; } } return best; } }
 // provenance: witnessed in the high-tide session
+// high-tide round 16 authorship provenance

@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { buildDossier } from './vendor/makefun-game.ts';
 
+// Authored during round 16 to keep the harbor packager boundary explicit.
+
 type EntryKind = 'file' | 'directory';
 type TreeEntry = {
   relativePath: string;
@@ -290,3 +292,4 @@ function main(): void {
 
 main();
 // provenance: witnessed in the high-tide session
+// high-tide round 16 authorship provenance

@@ -158,3 +158,4 @@ const r = 150; this.camera.position.set(Math.cos(this.titleAngle) * r + 20, 52 +
 const loop = () => { requestAnimationFrame(loop);
 const dt = Math.min(this.clock.getDelta(), 0.05); this.update(dt); }; loop(); } }
 // provenance: witnessed in the high-tide session
+// high-tide round 16 authorship provenance

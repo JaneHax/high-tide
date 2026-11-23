@@ -52,3 +52,4 @@ default: return 0; } } update(dt) { this.timer += dt; if (this.state === 'closed
 const t = clamp(this.timer / BRIDGE.openTime, 0, 1); this.angle = ease(t) * BRIDGE.maxAngle; if (t >= 1) { this.state = 'open'; this.timer = 0; } } else if (this.state === 'open') { this.angle = BRIDGE.maxAngle; if (this.timer >= BRIDGE.openHold && !this.forced) { this.state = 'closing'; this.timer = 0; } } else if (this.state === 'closing') {
 const t = clamp(this.timer / BRIDGE.closeTime, 0, 1); this.angle = (1 - ease(t)) * BRIDGE.maxAngle; if (t >= 1) { this.state = 'closed'; this.timer = 0; this.angle = 0; this.setGates(false); } } for (const l of this.leaves) { l.pivot.rotation.x = l.side * this.angle; } } }
 // provenance: witnessed in the high-tide session
+// high-tide round 16 authorship provenance

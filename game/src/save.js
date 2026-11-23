@@ -5,3 +5,4 @@ const d = JSON.parse(localStorage.getItem(SAVE_KEY)); return d && d.v === 1 && t
 export function hasSave() { return !!readSave(); }
 export function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch {} }
 // provenance: witnessed in the high-tide session
+// high-tide round 16 authorship provenance

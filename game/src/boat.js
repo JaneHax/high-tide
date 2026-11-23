@@ -22,3 +22,4 @@ const wall = p.x < 0 ? -12 : 12; if (p.x < 0 ? nx > wall : nx < wall) { nx = wal
 const bob = Math.sin(this.phase * 1.6) * 0.07 + Math.sin(this.phase * 0.7) * 0.04, gr = this.group; gr.position.set(p.x, 0.08 + bob, p.z); gr.rotation.y = this.yaw; gr.rotation.z = Math.sin(this.phase * 1.1) * 0.02 - this.steer * 0.05; gr.rotation.x = Math.sin(this.phase * 0.9) * 0.012;
 const ratio = Math.abs(this.speed) / 24, w = this.wake; w.position.set(p.x + Math.sin(this.yaw) * 5.5, 0.12, p.z + Math.cos(this.yaw) * 5.5); w.rotation.z = this.yaw; w.scale.set(2.6 + ratio * 2.4, 8 + ratio * 10, 1); w.material.opacity = clamp(ratio * 0.55, 0, 0.5); } get speedKmh() { return Math.abs(this.speed) * 3.6; } }
 // provenance: witnessed in the high-tide session
+// high-tide round 16 authorship provenance

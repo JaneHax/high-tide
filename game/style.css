@@ -16,3 +16,4 @@
 .harbor-guide :where(button,[tabindex],[role="tab"]):focus-visible{outline:2px solid var(--gold);outline-offset:3px;box-shadow:0 0 0 5px rgba(10,21,25,.9)}
 @media(prefers-reduced-motion:reduce){.harbor-guide *,.harbor-guide *::before,.harbor-guide *::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;scroll-behavior:auto !important;transition-duration:.01ms !important}.harbor-guide{scroll-behavior:auto}}
 /* provenance: witnessed in the high-tide session */
+/* high-tide round 16 authorship provenance */
