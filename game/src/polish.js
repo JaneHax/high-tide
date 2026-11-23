@@ -1,94 +1,64 @@
-import { HarborGuide } from './harborGuide.js';
+// polish.js — storm feedback, rain, wind, lamps, ambience, sound blips.
+import * as THREE from 'three';
+import { CFG } from './config.js';
+import { clamp, lerp } from './util.js';
 
-const waitForGame = () => {
-  const game = window.__HT_GAME;
-  if (!game) {
-    window.setTimeout(waitForGame, 120);
-    return;
+let audioCtx = null;
+export function beep(freq, dur = 0.08) {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.frequency.value = freq; o.type = 'square';
+    g.gain.value = 0.04;
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+  } catch { /* audio unavailable */ }
+}
+
+export function createPolish(scene, S) {
+  const n = CFG.storm.rain;
+  const pos = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    pos[i * 3] = (Math.random() - 0.5) * 120;
+    pos[i * 3 + 1] = Math.random() * 40;
+    pos[i * 3 + 2] = (Math.random() - 0.5) * 120;
   }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const rain = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xaaccee, size: 0.35, transparent: true, opacity: 0 }));
+  rain.visible = false; rain.frustumCulled = false;
+  scene.add(rain);
+  return { rain, stormT: 0, stormOn: false, target: 0 };
+}
 
-  const hud = document.getElementById('hud');
-  const dispatch = document.getElementById('dispatch');
-  if (!hud || !dispatch) return;
-
-  game.harborGuide = new HarborGuide(game);
-
-  const pulse = document.createElement('section');
-  pulse.id = 'cityPulse';
-  pulse.className = 'city-pulse panel';
-  pulse.innerHTML = `
-    <div class="pulse-head"><span class="pulse-dot"></span><span>PORT STATUS</span><b id="pulseClock">18:42</b></div>
-    <div class="pulse-main"><strong id="pulseLabel">CALM WATER</strong><span id="pulseZone">MARINA</span></div>
-    <div class="pulse-track"><i id="pulseStorm"></i></div>
-    <div class="pulse-foot"><span id="pulseJobs">0 / 10 JOBS</span><span id="pulseBridge">DECK LOWERED</span><span id="pulseRep">RUNNER</span></div>`;
-  hud.appendChild(pulse);
-
-  const saveChip = document.createElement('div');
-  saveChip.id = 'saveChip';
-  saveChip.className = 'save-chip';
-  saveChip.textContent = 'AUTOSAVE READY';
-  hud.appendChild(saveChip);
-
-  const title = document.getElementById('titleScreen');
-  const subtitle = document.getElementById('titleSub');
-  if (title && subtitle) {
-    const stats = document.createElement('div');
-    stats.className = 'title-stats';
-    stats.innerHTML = '<span><b>10</b> JOBS</span><span><b>5</b> HEAT LEVELS</span><span><b>1</b> CITY TO CROSS</span>';
-    subtitle.insertAdjacentElement('afterend', stats);
+export function updatePolish(dt, S, sys) {
+  const P = sys.polish;
+  P.stormT += dt;
+  if (P.stormT > CFG.storm.cycle) {
+    P.stormT = 0; P.stormOn = !P.stormOn;
+    P.target = P.stormOn ? 1 : 0;
+    sys.hud.toast(P.stormOn ? 'Storm rolling in off the sea — rain and wind' : 'Storm passing — the sun is back');
   }
-
-  let previousZone = game.zoneName;
-  let previousWanted = game.wanted;
-  let previousMode = game.mode;
-  let lastSave = 0;
-  const repTitle = (rep) => rep >= 130 ? 'KING OF PUERTO SOL' : rep >= 70 ? 'MADE' : rep >= 30 ? 'WHEELMAN' : 'RUNNER';
-  const update = () => {
-    const storm = Math.round((game.stormLevel || 0) * 100);
-    const label = storm > 76 ? 'EYE OF THE STORM' : storm > 52 ? 'RAIN MOVING IN' : storm > 28 ? 'WIND ON THE WATER' : 'CALM WATER';
-    const pulseLabel = document.getElementById('pulseLabel');
-    const pulseStorm = document.getElementById('pulseStorm');
-    const pulseZone = document.getElementById('pulseZone');
-    const pulseJobs = document.getElementById('pulseJobs');
-    const pulseBridge = document.getElementById('pulseBridge');
-    const pulseRep = document.getElementById('pulseRep');
-    const pulseClock = document.getElementById('pulseClock');
-    const bridgeStatus = game.bridge?.statusText || 'DECK LOWERED';
-    if (pulseLabel) pulseLabel.textContent = label;
-    if (pulseStorm) pulseStorm.style.width = `${storm}%`;
-    if (pulseZone) pulseZone.textContent = game.zoneName || 'PUERTO SOL';
-    if (pulseJobs) pulseJobs.textContent = `${game.missions.completed.size} / ${Object.keys(game.missions.defs).length} JOBS`;
-    if (pulseBridge) pulseBridge.textContent = bridgeStatus;
-    if (pulseRep) pulseRep.textContent = repTitle(game.rep);
-    if (pulseClock) pulseClock.textContent = document.getElementById('clock')?.textContent || '18:42';
-    saveChip.textContent = game.state === 'playing' ? (game.autosaveTimer > 17 ? 'AUTOSAVE READY' : 'SHIFT SAVED') : 'AUTOSAVE READY';
-    saveChip.classList.toggle('hot', game.wanted >= 3);
-
-    if (game.state === 'playing' && game.zoneName !== previousZone) {
-      game.hud.toast(`Entering ${game.zoneName}. Keep your head down.`, 'info', 2.8);
-      previousZone = game.zoneName;
-    }
-    if (game.state === 'playing' && game.wanted !== previousWanted) {
-      if (game.wanted > previousWanted) game.hud.toast(`Heat rising: ${game.wanted} star${game.wanted === 1 ? '' : 's'}.`, 'warn', 2.4);
-      if (game.wanted === 0 && previousWanted > 0) game.hud.toast('Guardia lost your signal.', 'success', 2.4);
-      previousWanted = game.wanted;
-    }
-    if (game.state === 'playing' && game.mode !== previousMode) {
-      const modeName = game.mode === 'car' ? 'Behind the wheel' : game.mode === 'boat' ? 'On the water' : 'On foot';
-      game.hud.toast(modeName, 'info', 1.8);
-      previousMode = game.mode;
-    }
-    if (game.state === 'playing' && Date.now() - lastSave > 26000) {
-      saveChip.textContent = 'AUTOSAVE READY';
-      lastSave = Date.now();
-    }
-  };
-  window.setInterval(update, 260);
-  update();
-};
-
-waitForGame();
-// provenance: witnessed in the high-tide session
-// high-tide round 16 authorship provenance
-
-// Provenance: Round 17 final attempt, authored in this session.
+  S.storm = clamp(S.storm + (P.target - S.storm) * dt * 0.5, 0, 1);
+  // Rain follows the player, falls faster in the storm.
+  const pos = P.rain.geometry.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    let y = pos.getY(i) - dt * (18 + S.storm * 14);
+    if (y < 0) y = 40;
+    pos.setY(i, y);
+    pos.setX(i, pos.getX(i) + dt * S.storm * 6);
+  }
+  pos.needsUpdate = true;
+  P.rain.position.set(S.player.pos.x, 0, S.player.pos.z);
+  P.rain.visible = S.storm > 0.25;
+  P.rain.material.opacity = S.storm * 0.7;
+  // Light dims and cools as the storm builds; lamps glow at dusk.
+  const sun = sys.sun, hemi = sys.hemi;
+  sun.intensity = lerp(2.6, 1.1, S.storm);
+  sun.color.setHex(S.storm > 0.5 ? 0xc9c9d8 : 0xffb066);
+  hemi.intensity = lerp(0.9, 0.55, S.storm);
+  sys.scene.fog.color.setHex(S.storm > 0.5 ? 0x8a8a96 : 0xf2a56b);
+  // Palms sway in the wind.
+  for (const p of sys.city.palms) p.rotation.z = Math.sin(S.time * 1.5 + p.position.x) * 0.08 * (0.4 + S.storm);
+  S.stormLevel = S.storm;
+}

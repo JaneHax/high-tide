@@ -1,43 +1,119 @@
-import { ROADS, LANDMARKS, WORLD, MISSION_COLORS, WEAPONS } from './config.js';
-import { clamp, formatMoney, formatTime } from './utils.js';
-const hex = (c) => '#' + c.toString(16).padStart(6, '0');
-export class Hud { constructor() { this.el = (id) => document.getElementById(id); this.cashEl = this.el('cash'); this.repEl = this.el('rep'); this.healthBar = this.el('healthBar'); this.healthNum = this.el('healthNum'); this.speedEl = this.el('speed'); this.vehicleEl = this.el('vehicleName'); this.weaponEl = this.el('weaponLine'); this.weaponNextEl = this.el('weaponNext'); this.radioEl = this.el('radioLine'); this.standingEl = this.el('standingLine'); this.objTitle = this.el('objTitle'); this.objStep = this.el('objStep'); this.objDist = this.el('objDist'); this.objCard = this.el('dispatch'); this.wantedEl = this.el('wanted'); this.bridgePill = this.el('bridgePill'); this.bridgeTime = this.el('bridgeTime'); this.clockEl = this.el('clock'); this.promptEl = this.el('prompt'); this.bannerEl = this.el('banner'); this.toastEl = this.el('toasts'); this.flashEl = this.el('damageFlash'); this.crosshair = this.el('crosshair'); this.timerEl = this.el('objTimer'); this.zoneEl = this.el('zoneName'); this.mapCanvas = this.el('minimap'); this.mapCtx = this.mapCanvas.getContext('2d'); this.wantedDiamonds = []; for (let i = 0; i < 5; i++) {
-const d = document.createElement('i'); d.className = 'star'; this.wantedEl.appendChild(d); this.wantedDiamonds.push(d); } this.lastWanted = -1; this.lastBridge = ''; this.toastTimer = 0; this.bannerTimer = 0; this.flashTimer = 0; this.mapTimer = 0; this.promptText = ''; } setPrompt(text) { if (text === this.promptText) return; this.promptText = text; if (text) { this.promptEl.innerHTML = text; this.promptEl.classList.add('show'); } else { this.promptEl.classList.remove('show'); } } toast(text, kind = 'info', duration = 4.2) {
-const d = document.createElement('div');
-d.className = `toast ${kind}`;
-d.textContent = text; this.toastEl.appendChild(d); while (this.toastEl.children.length > 3) this.toastEl.firstChild.remove(); setTimeout(() => { d.classList.add('out'); setTimeout(() => d.remove(), 500); }, duration * 1000); } banner(title, sub, color = 0xffb35c) {
-this.bannerEl.innerHTML = `<b>${title}</b><span>${sub}</span>`;
-this.bannerEl.style.setProperty('--accent', hex(color)); this.bannerEl.classList.remove('show'); void this.bannerEl.offsetWidth; this.bannerEl.classList.add('show'); clearTimeout(this.bannerTimer); this.bannerTimer = setTimeout(() => this.bannerEl.classList.remove('show'), 3800); } flashDamage() { this.flashEl.classList.add('hit'); clearTimeout(this.flashTimer); this.flashTimer = setTimeout(() => this.flashEl.classList.remove('hit'), 260); } update(dt, game) {
-const p = game.player; this.cashEl.textContent = formatMoney(game.cash); this.repEl.textContent = Math.floor(game.rep).toString();
-const hp = p.health / p.maxHealth;
-this.healthBar.style.width = `${clamp(hp * 100, 0, 100)}%`;
-this.healthBar.style.background = hp > 0.55 ? 'linear-gradient(90deg,#4fd1c5,#9be8c2)' : hp > 0.25 ? 'linear-gradient(90deg,#e2b04a,#ffd28a)' : 'linear-gradient(90deg,#e2503c,#ff8a6a)'; this.healthNum.textContent = Math.ceil(p.health);
-const speed = game.mode === 'car' ? Math.abs(game.car.speed) * 3.6 : game.mode === 'boat' ? game.boat.speedKmh : 0; this.speedEl.textContent = Math.round(speed).toString(); this.vehicleEl.textContent = game.mode === 'car' ? game.car.name : game.mode === 'boat' ? 'SOMBRA LAUNCH' : 'ON FOOT';
-const W = WEAPONS[game.weapon], ws = game.weapons[game.weapon];
-this.weaponEl.textContent = `${W.label} ${ws.mag} / ${W.magSize} · ${ws.reserve} RESERVE`;
-this.weaponNextEl.textContent = 'NEXT ' + Object.keys(WEAPONS).filter((k) => k !== game.weapon).map((k) => WEAPONS[k].label).join(' · '); if (game.wanted !== this.lastWanted) { this.lastWanted = game.wanted; this.wantedDiamonds.forEach((d, i) => d.classList.toggle('on', i < game.wanted)); this.wantedEl.classList.toggle('hot', game.wanted >= 3); }
-const obj = game.missions.objective(); this.objTitle.textContent = obj.title; this.objStep.textContent = obj.text; this.objCard.style.setProperty('--accent', hex(obj.color));
-if (obj.dist !== null && obj.dist !== undefined) this.objDist.textContent = obj.dist < 1000 ? `${Math.round(obj.dist)} m` : `${(obj.dist / 1000).toFixed(1)} km`;
-else this.objDist.textContent = '—'; this.timerEl.textContent = obj.timer !== null && obj.timer !== undefined ? formatTime(obj.timer) : ''; this.timerEl.classList.toggle('show', obj.timer !== null && obj.timer !== undefined);
-const bp = game.bridge;
-const bridgeText = `${bp.statusText} ${bp.state === 'closed' || bp.state === 'open' ? Math.ceil(bp.secondsLeft) + 's' : ''}`;
-if (bridgeText !== this.lastBridge) { this.lastBridge = bridgeText; this.bridgePill.textContent = bridgeText; this.bridgePill.className = 'bridge ' + bp.state; } this.clockEl.textContent = formatTime(game.gameClock); this.zoneEl.textContent = game.zoneName;
-this.radioEl.textContent = `ON AIR · ${game.stations[game.station]}`;
-this.standingEl.textContent = `${game.zoneName} · STANDING ${game.standing[game.zoneName] || 0}`; this.crosshair.classList.toggle('show', game.mode === 'foot' && p.aiming); this.mapTimer -= dt; if (this.mapTimer <= 0) { this.mapTimer = 0.05; this.drawMap(game); } } drawMap(game) {
-const c = this.mapCtx;
-const S = 360; c.clearRect(0, 0, S, S); c.save(); c.beginPath(); c.arc(S / 2, S / 2, S / 2 - 5, 0, Math.PI * 2); c.clip(); c.fillStyle = '#0f1b20'; c.fillRect(0, 0, S, S);
-const range = 155;
-const scale = (S - 20) / (range * 2);
-const ap = game.activePos;
-const px = ap.x, pz = ap.z;
-const tx = (x) => S / 2 + (x - px) * scale;
-const tz = (z) => S / 2 + (z - pz) * scale; c.fillStyle = '#17414c'; c.fillRect(0, tz(-WORLD.channelHalf), S, (WORLD.channelHalf * 2) * scale); c.fillStyle = 'rgba(255,255,255,0.08)'; c.fillRect(0, tz(-WORLD.channelHalf), S, 2); c.fillRect(0, tz(WORLD.channelHalf) - 2, S, 2); c.lineCap = 'butt'; for (const pass of [0, 1]) { c.strokeStyle = pass ? 'rgba(235,220,190,0.22)' : '#3c474b'; for (const r of ROADS) { c.lineWidth = pass ? 1 : Math.max(2.5, r.width * scale); c.beginPath(); if (r.axis === 'z') { c.moveTo(tx(r.pos), tz(r.from)); c.lineTo(tx(r.pos), tz(r.to)); } else { c.moveTo(tx(r.from), tz(r.pos)); c.lineTo(tx(r.to), tz(r.pos)); } c.stroke(); } }
-const pass = game.bridge.passable; c.fillStyle = pass ? '#63d6a0' : '#ff6a4a'; c.fillRect(tx(-8), tz(-26), 16 * scale, 52 * scale); if (!pass) { c.fillStyle = '#0f1b20'; c.fillRect(tx(-8), tz(-3), 16 * scale, 6 * scale); } for (const [id, marker] of game.missions.startMarkers) { if (!marker.visible) continue;
-const def = game.missions.defs[id]; c.fillStyle = hex(def.color); c.fillRect(tx(marker.position.x) - 4, tz(marker.position.z) - 4, 8, 8); }
-const obj = game.missions.objective(), target = game.missions.stepTarget ? game.missions.stepTarget() : null; if (target) {
-const x = tx(target[0]), z = tz(target[1]); c.strokeStyle = hex(obj.color); c.lineWidth = 2; c.beginPath(); c.arc(x, z, 7 + Math.sin(performance.now() * 0.006) * 2, 0, Math.PI * 2); c.stroke(); c.fillStyle = hex(obj.color); c.beginPath(); c.arc(x, z, 3, 0, Math.PI * 2); c.fill(); } for (const car of game.police.cruisers) { c.fillStyle = '#ff4f42'; c.beginPath(); c.arc(tx(car.pos.x), tz(car.pos.z), 4, 0, Math.PI * 2); c.fill(); } if (game.police.chopper) { c.strokeStyle = '#ff4f42'; c.lineWidth = 2; c.beginPath(); c.arc(tx(game.police.chopper.group.position.x), tz(game.police.chopper.group.position.z), 6, 0, Math.PI * 2); c.stroke(); } if (game.mode !== 'boat') { c.fillStyle = '#62d7cf'; c.beginPath(); c.arc(tx(game.boat.pos.x), tz(game.boat.pos.z), 4, 0, Math.PI * 2); c.fill(); }
-const angle = game.mode === 'car' ? game.car.yaw : game.mode === 'boat' ? game.boat.yaw : game.player.yaw; c.save(); c.translate(S / 2, S / 2); c.rotate(-angle); c.fillStyle = '#ffe6b8'; c.beginPath(); c.moveTo(0, -10); c.lineTo(7, 7); c.lineTo(0, 3); c.lineTo(-7, 7); c.closePath(); c.fill(); c.restore(); c.restore(); c.strokeStyle = 'rgba(242,230,207,0.55)'; c.lineWidth = 2; c.beginPath(); c.arc(S / 2, S / 2, S / 2 - 5, 0, Math.PI * 2); c.stroke(); c.fillStyle = '#f2e6cf'; c.font = 'bold 14px "Arial Narrow", Arial, sans-serif'; c.textAlign = 'center'; c.fillText('N', S / 2, 20); c.strokeStyle = 'rgba(242,230,207,0.7)'; c.beginPath(); c.moveTo(S / 2, 26); c.lineTo(S / 2 - 4, 34); c.lineTo(S / 2 + 4, 34); c.closePath(); c.stroke(); } }
-// provenance: witnessed in the high-tide session
-// high-tide round 16 authorship provenance
+// hud.js — cash, rep, stars, health, weapons, job panel, minimap, toasts, banners.
+import { CFG } from './config.js';
+import { el, show, fmt$ } from './util.js';
+import { jobState } from './missions.js';
 
-// Provenance: Round 17 final attempt, authored in this session.
+let toastQueue = [], toastBusy = false;
+
+export function toast(msg) {
+  toastQueue.push(msg);
+  if (!toastBusy) nextToast();
+}
+function nextToast() {
+  const msg = toastQueue.shift();
+  if (msg === undefined) { toastBusy = false; return; }
+  toastBusy = true;
+  const t = el('toast');
+  t.textContent = msg; show(t, true);
+  setTimeout(() => { show(t, false); nextToast(); }, 2600);
+}
+
+export function createHUD(S, sys) {
+  el('guideBtn').onclick = () => sys.guide.toggleGuide(S, sys);
+  el('atlasBtn').onclick = () => sys.atlas.toggleAtlas(S, sys);
+  el('guideClose').onclick = () => sys.guide.closeGuide(S);
+  el('atlasClose').onclick = () => sys.atlas.closeAtlas(S);
+  renderJobPanel(S, sys);
+}
+
+export function renderJobPanel(S, sys) {
+  const list = el('jobList');
+  list.innerHTML = CFG.jobs.map((j) => {
+    const st = jobState(S, j);
+    const btn = st === 'available'
+      ? `<button data-job="${j.id}">Start</button>`
+      : st === 'active' ? '<b>ACTIVE</b>' : st === 'done' ? '✓' : '🔒';
+    return `<div class="job-row ${st}"><b>${j.title}</b> ${fmt$(j.pay)} · +${j.rep} rep ${btn}</div>`;
+  }).join('');
+  list.querySelectorAll('button[data-job]').forEach((b) => {
+    b.onclick = () => { if (sys.missions.startJob(S, sys, b.dataset.job)) renderJobPanel(S, sys); };
+  });
+}
+
+export function setHold(frac) {
+  const h = el('holdBar');
+  h.style.display = frac > 0 ? 'block' : 'none';
+  el('holdFill').style.width = Math.round(frac * 100) + '%';
+}
+export function setPrompt(text) {
+  const p = el('prompt');
+  p.textContent = text || '';
+  show(p, !!text);
+}
+
+export function updateHUD(dt, S, sys) {
+  el('cash').textContent = fmt$(S.cash);
+  const lvl = CFG.repLevels[S.repLevel];
+  const next = CFG.repLevels[S.repLevel + 1];
+  el('repName').textContent = lvl.name + ' · rep ' + S.rep;
+  el('repFill').style.width = (next ? (S.rep - lvl.at) / (next.at - lvl.at) * 100 : 100) + '%';
+  el('stars').textContent = '★'.repeat(S.stars) + '☆'.repeat(5 - S.stars);
+  el('healthFill').style.width = S.health + '%';
+  const w = CFG.weapons[S.weapons.cur];
+  el('weapon').textContent = w.name;
+  el('ammo').textContent = (S.weapons.ammo[S.weapons.cur] || 0) + ' / ' + (S.weapons.owned[S.weapons.cur] ? w.mag : 0);
+  // Job readout + timer.
+  const J = S.job;
+  if (J) {
+    const job = CFG.jobs.find((j) => j.id === J.id);
+    el('jobTitle').textContent = job.title;
+    el('jobDesc').textContent = job.story;
+    el('jobTimer').textContent = J.t > 0 ? Math.ceil(J.t) + 's' : '';
+  } else {
+    el('jobTitle').textContent = 'No active job';
+    el('jobDesc').textContent = 'Pick a job from the panel — or open the Harbor Guide (G).';
+    el('jobTimer').textContent = '';
+  }
+  // AIR ONE banner, port status, district.
+  show(el('banner'), sys.heli.active);
+  el('portStatus').textContent = 'Bridge: ' + S.bridge.toUpperCase() + (S.storm > 0.5 ? ' · STORM' : S.storm > 0.25 ? ' · rain' : ' · clear');
+  const st = S.districts.standing[S.district] || 0;
+  el('district').textContent = S.district + ' · ' + S.station + ' · standing ' + st;
+  el('pkgCount').textContent = '📦 ' + S.packages.filter(Boolean).length + '/5';
+  drawMinimap(S, sys);
+}
+
+function drawMinimap(S, sys) {
+  const cv = el('minimap');
+  if (!cv) return;
+  const c = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const toX = (x) => (x + 200) / 400 * W, toY = (z) => (z + 240) / 440 * H;
+  c.fillStyle = '#101018'; c.fillRect(0, 0, W, H);
+  c.fillStyle = '#1d4a5e'; c.fillRect(0, 0, W, toY(-150)); // sea
+  c.fillStyle = '#d9c27a'; c.fillRect(0, toY(-150), W, toY(-138) - toY(-150)); // beach
+  c.strokeStyle = '#3c3c40'; c.lineWidth = 2;
+  for (let x = -160; x <= 160; x += 40) { c.beginPath(); c.moveTo(toX(x), toY(-120)); c.lineTo(toX(x), toY(160)); c.stroke(); }
+  for (let z = -120; z <= 160; z += 40) { c.beginPath(); c.moveTo(toX(-160), toY(z)); c.lineTo(toX(160), toY(z)); c.stroke(); }
+  c.fillStyle = '#8a7f8d';
+  for (const b of sys.city.colliders) c.fillRect(toX(b.x0), toY(b.z0), toX(b.x1) - toX(b.x0), toY(b.z1) - toY(b.z0));
+  // Mission marker.
+  if (S.job) {
+    c.fillStyle = '#ffd23c';
+    c.beginPath(); c.arc(toX(S.job.tx), toY(S.job.tz), 5, 0, 7); c.fill();
+  }
+  // Police, boats, packages.
+  c.fillStyle = '#ff4444';
+  for (const o of sys.police.officers) { c.beginPath(); c.arc(toX(o.pos.x), toY(o.pos.z), 2.5, 0, 7); c.fill(); }
+  for (const cr of sys.police.cruisers) { c.beginPath(); c.arc(toX(cr.pos.x), toY(cr.pos.z), 3, 0, 7); c.fill(); }
+  c.fillStyle = '#4b8ad9';
+  for (const b of sys.boats.boats) { c.beginPath(); c.arc(toX(b.pos.x), toY(b.pos.z), 3, 0, 7); c.fill(); }
+  c.fillStyle = '#ffd23c';
+  for (const p of sys.collect.pkgs) if (!p.taken) { c.beginPath(); c.arc(toX(p.mesh.position.x), toY(p.mesh.position.z), 2, 0, 7); c.fill(); }
+  // Player arrow.
+  const P = S.player.pos;
+  c.fillStyle = '#ffffff';
+  c.beginPath(); c.arc(toX(P.x), toY(P.z), 4, 0, 7); c.fill();
+  // North + viewport frame.
+  c.strokeStyle = '#666'; c.strokeRect(0.5, 0.5, W - 1, H - 1);
+}

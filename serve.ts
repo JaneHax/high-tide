@@ -1,70 +1,23 @@
-// Serves this directory over HTTP so the game's ES modules load. Node 22 or newer, no dependencies,
-// no build step: run `node serve.ts` and open the URL it prints.
+// serve.ts — a small local static server for play-testing High Tide.
+// Serves game/ at http://localhost:8080 (or $PORT).
 import { createServer } from 'node:http';
-import { createReadStream, statSync } from 'node:fs';
-import { extname, join, normalize, resolve, sep } from 'node:path';
+import { readFileSync, existsSync, statSync } from 'node:fs';
+import { join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = resolve(fileURLToPath(new URL('.', import.meta.url)));
-const port = Number(process.env.PORT ?? 8080);
-
-const types: Record<string, string> = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.mjs': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.ts': 'text/plain; charset=utf-8',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.png': 'image/png',
-  '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon',
-};
+const root = join(fileURLToPath(new URL('.', import.meta.url)), 'game');
+const port = Number(process.env.PORT || 8080);
+const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.jpg': 'image/jpeg', '.png': 'image/png' };
 
 const server = createServer((req, res) => {
-  const url = new URL(req.url ?? '/', 'http://localhost');
-  let pathname: string;
-  try {
-    pathname = decodeURIComponent(url.pathname);
-  } catch {
-    res.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });
-    res.end('bad request\n');
+  const path = decodeURIComponent(new URL(req.url || '/', 'http://x').pathname).replace(/^\/+/, '');
+  if (path === 'favicon.ico') { res.writeHead(204); res.end(); return; }
+  const file = join(root, path === '' ? 'index.html' : path);
+  if (!file.startsWith(root) || !existsSync(file) || !statSync(file).isFile()) {
+    res.writeHead(404); res.end('not found');
     return;
   }
-  if (pathname.endsWith('/')) pathname += 'index.html';
-
-  const target = resolve(join(root, normalize(pathname)));
-  if (target !== root && !target.startsWith(root + sep)) {
-    res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' });
-    res.end('forbidden\n');
-    return;
-  }
-
-  let size: number;
-  try {
-    const stat = statSync(target);
-    if (!stat.isFile()) throw new Error('not a file');
-    size = stat.size;
-  } catch {
-    res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
-    res.end('not found\n');
-    return;
-  }
-
-  res.writeHead(200, {
-    'content-type': types[extname(target).toLowerCase()] ?? 'application/octet-stream',
-    'content-length': size,
-    'cache-control': 'no-store',
-  });
-  createReadStream(target).pipe(res);
+  res.writeHead(200, { 'content-type': types[extname(file)] || 'application/octet-stream' });
+  res.end(readFileSync(file));
 });
-
-server.listen(port, () => {
-  console.log(`high-tide: serving ${root}`);
-  console.log(`high-tide: open http://localhost:${port}/game/index.html`);
-});
-// provenance: witnessed in the high-tide session
-// high-tide round 16 authorship provenance
-
-// Provenance: Round 17 final attempt, authored in this session.
+server.listen(port, () => console.log(`High Tide at http://localhost:${port}/`));

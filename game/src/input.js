@@ -1,11 +1,31 @@
-export class Input { constructor(canvas, handlers) { this.canvas = canvas; this.handlers = handlers; this.keys = new Set(); this.mouseDX = 0; this.mouseDY = 0; this.fire = this.aim = false; this.zoom = 0; this.locked = false; this.enabled = false; this.dragging = false; this.lastX = 0; this.lastY = 0; this.bind(); } bind() {
-const keyCodes = 'KeyW KeyA KeyS KeyD Space ShiftLeft KeyE KeyF KeyR KeyB KeyM Escape ArrowUp ArrowDown'.split(' ');
-window.addEventListener('keydown', (e) => {
-const code = e.code; if (this.enabled && keyCodes.includes(code)) e.preventDefault(); if (this.keys.has(code)) return; this.keys.add(code); if (this.enabled && this.handlers.onKey) this.handlers.onKey(code, e); }); window.addEventListener('keyup', (e) => this.keys.delete(e.code)); window.addEventListener('blur', () => { this.keys.clear(); this.fire = this.aim = false; }); this.canvas.addEventListener('mousedown', (e) => { if (!this.enabled) return; if (e.button === 0) { if (!this.locked) { this.requestLock(); this.dragging = true; this.lastX = e.clientX; this.lastY = e.clientY; } this.fire = true; } if (e.button === 2) this.aim = true; }); window.addEventListener('mouseup', (e) => { if (e.button === 0) { this.fire = false; this.dragging = false; } if (e.button === 2) this.aim = false; }); window.addEventListener('mousemove', (e) => { if (!this.enabled) return; if (this.locked) { this.mouseDX += e.movementX || 0; this.mouseDY += e.movementY || 0; } else if (this.dragging) { this.mouseDX += e.clientX - this.lastX; this.mouseDY += e.clientY - this.lastY; this.lastX = e.clientX; this.lastY = e.clientY; } }); this.canvas.addEventListener('contextmenu', (e) => e.preventDefault()); this.canvas.addEventListener('wheel', (e) => { if (!this.enabled) return; e.preventDefault(); this.zoom += Math.sign(e.deltaY); }, { passive: false }); document.addEventListener('pointerlockchange', () => { this.locked = document.pointerLockElement === this.canvas; if (!this.locked) this.fire = this.aim = false; }); } requestLock() { if (document.pointerLockElement === this.canvas) return;
-const p = this.canvas.requestPointerLock?.(); p?.catch?.(() => {}); } releaseLock() { if (document.pointerLockElement) document.exitPointerLock(); } consumeMouse() {
-const d = { dx: this.mouseDX, dy: this.mouseDY }; this.mouseDX = this.mouseDY = 0; return d; } consumeZoom() {
-const z = this.zoom; this.zoom = 0; return z; } down(code) { return this.keys.has(code); } get forward() { return this.down('KeyW') || this.down('ArrowUp'); } get back() { return this.down('KeyS') || this.down('ArrowDown'); } get left() { return this.down('KeyA'); } get right() { return this.down('KeyD'); } get run() { return this.down('ShiftLeft') || this.down('ShiftRight'); } get handbrake() { return this.down('Space'); } clear() { this.keys.clear(); this.fire = this.aim = false; this.mouseDX = this.mouseDY = 0; } }
-// provenance: witnessed in the high-tide session
-// high-tide round 16 authorship provenance
-
-// Provenance: Round 17 final attempt, authored in this session.
+// input.js — keyboard + mouse state with edge detection.
+export function createInput(canvas) {
+  const keys = {}, hit = {};
+  const mouse = { dx: 0, dy: 0, down: false, locked: false };
+  const code = (e) => e.code;
+  addEventListener('keydown', (e) => {
+    if (!keys[code(e)]) hit[code(e)] = true;
+    keys[code(e)] = true;
+    if (['Space', 'ArrowUp', 'ArrowDown'].includes(code(e))) e.preventDefault();
+  });
+  addEventListener('keyup', (e) => { keys[code(e)] = false; });
+  addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+  canvas.addEventListener('mousedown', (e) => {
+    mouse.down = true;
+    if (!hit['Mouse0']) hit['Mouse0'] = true;
+    try { const p = canvas.requestPointerLock?.(); p && p.catch && p.catch(() => {}); } catch { /* pointer lock unavailable */ }
+  });
+  addEventListener('mouseup', () => { mouse.down = false; });
+  addEventListener('mousemove', (e) => {
+    if (document.pointerLockElement === canvas) { mouse.dx += e.movementX; mouse.dy += e.movementY; }
+    else if (mouse.down) { mouse.dx += e.movementX; mouse.dy += e.movementY; }
+  });
+  document.addEventListener('pointerlockchange', () => { mouse.locked = document.pointerLockElement === canvas; });
+  return {
+    keys, mouse,
+    down: (c) => !!keys[c],
+    pressed: (c) => { const v = !!hit[c]; hit[c] = false; return v; },
+    consumeMouse: () => { const d = { dx: mouse.dx, dy: mouse.dy }; mouse.dx = 0; mouse.dy = 0; return d; },
+    endFrame: () => { for (const k in hit) hit[k] = false; },
+  };
+}

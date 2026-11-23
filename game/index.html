@@ -1,7 +1,50 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>High Tide: Storm Shift</title><link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="><link rel="stylesheet" href="./style.css"><script type="importmap">
-{"imports":{"three":"./vendor/three.module.min.js"}}
-</script></head><body><div id="stage"></div><div id="hud" class="hidden"><section id="dispatch" class="panel dispatch"><div class="kicker"><i class="live"></i> HIGH TIDE • HARBOR DISPATCH <span id="clock">18:42</span></div><div id="objTitle">STORM SHIFT</div><div id="objStep">Find a job marker</div><div class="objfoot"><span id="objDist">—</span><span id="objTimer"></span></div></section><section class="status"><div class="heat"><span class="heatlabel">WANTED</span><div id="wanted" class="wanted"></div></div><div class="wallet"><div class="stat"><span>CASH</span><b id="cash">$0</b></div><div class="stat rep"><span>REP</span><b id="rep">0</b></div></div></section><section class="mapcard"><div class="maptop"><span>PUERTO SOL</span><span id="zoneName">MARINA</span></div><div id="radioLine">ON AIR · K-SOL 88.4</div><div id="standingLine">MARINA SOL · STANDING 0</div><canvas id="minimap" width="360" height="360"></canvas><div class="bridge" id="bridgePill">DECK LOWERED</div></section><section class="drive"><div class="speedo"><b id="speed">0</b><span>KM/H</span></div><div id="vehicleName">ON FOOT</div><div id="weaponLine">GUARDIA 9 12 / 12 · 96 RESERVE</div><div id="weaponNext">NEXT BREACHER · SOMBRA SMG · FARO RIFLE</div><div class="healthrow"><span class="hp">VITALS</span><div class="healthtrack"><i id="healthBar"></i></div><b id="healthNum">100</b></div></section><div id="prompt"></div><div id="toasts"></div><div id="banner"></div><div id="crosshair"></div><div id="damageFlash"></div></div><div id="titleScreen" class="screen title"><div class="titleTop"><span>PUERTO SOL // HARBOR AUTHORITY</span><span>OFFLINE BUILD 1.0</span></div><div class="titleWrap"><div class="titleKicker">A COASTAL CRIME STORY</div><h1>HIGH TIDE</h1><h2>STORM SHIFT</h2><p id="titleSub">Rico has one last crossing before the storm.</p><div class="titleButtons"><button id="btnStart" class="btn primary">START SHIFT</button><button id="btnResume" class="btn">RESUME</button><button id="btnControls" class="btn ghost">CONTROLS</button></div><div id="controlsCard" class="controlsCard"><div><b>WASD</b> move / drive</div><div><b>MOUSE</b> camera / aim</div><div><b>CLICK</b> fire</div><div><b>RIGHT MOUSE</b> aim</div><div><b>E</b> enter / exit / interact</div><div><b>R</b> reload</div><div><b>SPACE</b> handbrake</div><div><b>SHIFT</b> sprint / boost</div><div><b>B</b> call bridge (boat)</div><div><b>J</b> open Harbor Guide</div><div><b>M</b> mute</div><div><b>ESC</b> pause &amp; save</div><div><b>WHEEL</b> camera zoom</div></div></div></div><div id="pauseScreen" class="screen pause hidden"><div class="pauseCard"><div class="titleKicker">SHIFT PAUSED</div><h2>THE STORM WAITS</h2><p>Progress is saved when you pause, finish a job, or leave the garage.</p><div class="pauseButtons"><button id="btnResumePause" class="btn primary">RESUME</button><button id="btnSaveQuit" class="btn">SAVE &amp; QUIT</button><button id="btnRestart" class="btn ghost">RESTART SHIFT</button><button id="btnMute" class="btn ghost">SOUND ON</button></div><div><b>E</b> interact</div><div><b>R</b> reload</div><div><b>B</b> call bridge</div><div><b>ESC</b> resume</div></div></div></div><div id="deadScreen" class="screen dead hidden"><div class="pauseCard"><div class="titleKicker">SIGNAL LOST</div><h2>WASHED OUT</h2><p>The harbor keeps its secrets. The clinic will patch you up for $120.</p><div class="pauseButtons"><button id="btnRestartDead" class="btn primary">WAKE AT THE CLINIC</button><button id="btnTitleDead" class="btn ghost">RETURN TO TITLE</button></div></div></div><script type="module" src="./src/main.js"></script><script type="module" src="./src/polish.js"></script></body></html>
-<!-- provenance: witnessed in the high-tide session -->
-<!-- high-tide round 16 authorship provenance -->
-
-<!-- Provenance: Round 17 final attempt, authored in this session. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>High Tide — Puerto Sol</title>
+<link rel="stylesheet" href="./style.css">
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
+</head>
+<body>
+<div id="stage"></div>
+<div id="hud" style="display:none">
+  <div id="topbar">
+    <span id="cash">$200</span>
+    <span id="rep"><span id="repFill"></span><em id="repName">Runner · rep 0</em></span>
+    <span id="stars">☆☆☆☆☆</span>
+    <span id="health"><span id="healthFill"></span></span>
+    <span id="weapon">Pistol</span><span id="ammo">48 / 12</span>
+    <span id="pkgCount">📦 0/5</span>
+  </div>
+  <div id="banner">🚁 AIR ONE — POLICE HELICOPTER OVERHEAD</div>
+  <div id="jobPanel">
+    <h2>Sombra's Jobs</h2>
+    <div id="jobTitle">No active job</div>
+    <div id="jobDesc"></div>
+    <div id="jobTimer"></div>
+    <div id="jobList"></div>
+    <div class="job-foot"><button id="guideBtn">Harbor Guide (G)</button><button id="atlasBtn">Harbor Atlas (H)</button></div>
+  </div>
+  <div id="side">
+    <div id="portStatus">Bridge: OPEN · clear</div>
+    <div id="district">Downtown</div>
+  </div>
+  <canvas id="minimap" width="180" height="198"></canvas>
+  <div id="prompt"></div>
+  <div id="holdBar"><div id="holdFill"></div></div>
+  <div id="toast" style="display:none"></div>
+  <div id="help">WASD move · Shift sprint · mouse look · F car/boat · E interact · 1-4/Q weapons · click shoot · G guide · H atlas · P pause</div>
+</div>
+<div id="guidePanel" style="display:none"><h2>Harbor Guide — Sombra's Journal</h2><div id="guideBody"></div><button id="guideClose">Close</button></div>
+<div id="atlasPanel" style="display:none"><h2>Harbor Atlas — Puerto Sol</h2><div id="atlasBody"></div><button id="atlasClose">Close</button></div>
+<div id="start">
+  <h1>HIGH TIDE</h1>
+  <p>Puerto Sol, golden hour. Rico works for Sombra.</p>
+  <p>Ten jobs. Five stars. One tide.</p>
+  <p class="go">Press Enter or click to start</p>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
