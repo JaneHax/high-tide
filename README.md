@@ -1,96 +1,58 @@
-# High Tide
+# HIGH TIDE — Puerto Sol
 
 [![make.fun · gta6-01](https://make.fun/badge/gta6-01.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
 [![rank](https://make.fun/badge/gta6-01/JaneHax/high-tide/rank.svg)](https://make.fun/bounty/gta6-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
 [![reward](https://make.fun/badge/gta6-01/JaneHax/high-tide/reward.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
 
-An open-world crime game set in Puerto Sol at golden hour, built for the
-[make.fun gta6-01 bounty](https://make.fun/bounty/gta6-01) — "Make GTA 6",
-$1,666 total, top 100 paid, free entry. You are Rico, working jobs for
-Sombra in a coastal city of roads, downtown towers, a market square, a
-park, a seaside promenade, a marina pier, a beach and the open sea. The
-sun hangs low and warm, lamps glow, palms line the promenade, traffic
-moves and people walk the streets. Everything is original art and names.
+An open-world crime game in Puerto Sol, built for the make.fun bounty
+[gta6-01 — Make GTA 6](https://make.fun/bounty/gta6-01): $1,666 over the top
+100 places, free entry. Rico works for Sombra across a sun-soaked coastal
+city at golden hour — downtown towers, market square, park, promenade,
+marina pier, beach and sea.
 
-## How to run
+## Play
 
-Serve the game folder, or start the included local server:
+Serve `game/` with any static server (or run `node serve.ts`) and open
+`game/index.html` in desktop Chrome. No network requests at runtime.
 
-```sh
-npx serve game/
-```
+- **WASD** move · **Shift** sprint · **mouse** look (click to lock)
+- **F** take a car / board a boat · **E** interact (context prompt)
+- **1–4 / Q** switch weapons · **click** shoot
+- **G** Harbor Guide (mission journal) · **H** Harbor Atlas
+- **Enter** start / resume · **P** pause
 
-or
+## The game
 
-```sh
-node serve.ts
-```
+- A coastal city grid with traffic and pedestrians, lamps glowing at
+  golden hour and palms along the promenade and beach.
+- Ten jobs for Sombra ($400–$4,000): walks, a corner-store robbery (hold
+  E for three seconds, +2 stars), a three-checkpoint race in 75 seconds,
+  a getaway, a cargo drive, a boat sail, and a final walk to Sombra —
+  five of them conditional (repo run, countdown, clean-plate, split
+  take, harbor job).
+- Wanted stars 0–5: foot officers, cruisers, a two-cruiser roadblock at
+  3+ stars, and the Air One police helicopter with rotor and
+  searchlight.
+- Four weapons (pistol, eight-pellet shotgun, automatic SMG, long-range
+  rifle) unlocked by reputation: Runner, Wheelman, Made, King of
+  Puerto Sol.
+- Garage with stored cars, three street races ($800, best time saved),
+  a marina boat race (four buoys, 90 seconds), five hidden packages
+  ($150 each), district radio and per-district standing, a harbor
+  drawbridge that opens and closes, and storms that roll in off the sea.
+- Harbor Guide journal and Harbor Atlas panel track jobs, packages and
+  districts found. Progress saves in local storage.
 
-Then open `game/index.html` in desktop Chrome. The game runs entirely
-locally with no network requests at runtime.
+## Tech
 
-## Controls
+Three.js vendored under `game/vendor/`, ES modules, no build step.
+`main.ts` (Node 22, standard library only) copies `game/` and
+`screenshots/` to the output directory and writes `dossier.json` with
+the kit's `vendor/makefun-game.ts`.
 
-- **W A S D** — walk
-- **Shift** — sprint
-- **Mouse** — camera, click to fire
-- **F** — enter and leave cars and boats
-- **E** — context action (single context key, with a live on-screen prompt)
-- **Enter** — start and resume
-- **1 / 2 / 3** and **Q** — switch weapons
+MIT licensed. Original city, characters, story and art — nothing from
+any commercial game.
 
-## Jobs
-
-Ten jobs for Sombra, listed in the on-screen job panel with a title, a
-story line, a payout and a reputation reward. Payouts run from $400 to
-$4,000. The kinds include walks, a shop robbery (hold E for three
-seconds, adds two wanted stars), a three-checkpoint race against a
-75-second clock, a getaway that starts at two stars with a 60-second
-clock, a drive-the-cargo-car job, a sail-the-boat job, and a final walk
-to Sombra. Five of the ten are conditional jobs that only appear when
-their condition holds: a repo run (fetch and return), a countdown job, a
-clean-plate job (no wanted stars while doing it), a split-take job
-(payout split across two drops), and a harbor job at the port.
-
-## Reputation, wanted level and weapons
-
-Reputation runs 0 / 30 / 70 / 130 — Runner, Wheelman, Made, King of
-Puerto Sol. Higher reputation unlocks weapons and adds +5% car speed per
-level. The wanted level runs 0–5 stars: foot officers, cruisers, a
-roadblock of two cruisers and two officers at three stars or more, and
-the Air One police helicopter with rotor and searchlight at three stars
-or more (a spotter at four stars). Four weapons — pistol, eight-pellet
-shotgun, automatic submachine gun and long-range rifle — each with its
-own ammunition and reputation lock.
-
-## Garage, boats, collectibles and the harbor
-
-- **Garage** — a lot that stores and retrieves the car you drive; the
-  game saves in local storage. Three street-race posts offer a
-  three-checkpoint 60-second race paying $800 with a saved best time.
-- **Boats** — three at the piers: F boards, W/A/D drive, F leaves. A
-  boat-race post at the marina runs a four-buoy timed race in 90
-  seconds.
-- **Collectibles** — five glowing packages hidden around the city (a
-  rooftop, the pier end, the park, the market, the beach), $150 each,
-  counted on the HUD.
-- **Harbor Guide** — an in-game mission journal listing the jobs, their
-  story lines, payouts and reputation, marking progress, reachable from
-  the HUD and job panel.
-- **Harbor Atlas** — an in-game atlas of the harbor and port recording
-  what the player has found and done: jobs done, packages found,
-  districts visited, shown as a readable panel.
-- **Live port status** — the HUD shows the harbor bridge state
-  (open/closed) as it changes, and the bridge state is visible in the
-  world.
-- **District radio** — each district has its own radio station flavour,
-  and job standing is tracked per district and shown in the HUD.
-- **Storm feedback** — the dispatch HUD and the world react to the storm
-  (rain, wind, light changes) and the feedback is visible on screen.
-
-The HUD shows cash, the reputation bar, stars, health, weapon and
-ammunition, the job panel, toasts, a minimap, the AIR ONE banner, live
-port and bridge status, district standing, the Harbor Guide journal and
-the Harbor Atlas panel.
+---
 
 <sub>Entered on [make.fun](https://make.fun/?ref=janehax&utm_source=github&utm_medium=readme&utm_campaign=gta6-01) · AI agents build software for cash rewards</sub>
