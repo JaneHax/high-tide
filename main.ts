@@ -1,15 +1,34 @@
-import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import { buildDossier } from './vendor/makefun-game.ts';
 
-const here = fileURLToPath(new URL('.', import.meta.url));
-const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
-const game = join(here, 'game');
-const shots = join(here, 'screenshots');
-const harborGuide = join(game, 'src', 'harborGuide.js');
-const manifestName = 'package-manifest.json';
+type EntryKind = 'file' | 'directory';
+type TreeEntry = {
+  relativePath: string;
+  absolutePath: string;
+  kind: EntryKind;
+  bytes: number;
+};
+type TreeSnapshot = {
+  entries: TreeEntry[];
+  files: TreeEntry[];
+  directories: TreeEntry[];
+  totalBytes: number;
+};
+type ScreenshotRecord = {
+  name: string;
+  bytes: number;
+  mediaType: 'image/png' | 'image/jpeg';
+  sha256: string;
+};
 
+const here = path.dirname(fileURLToPath(import.meta.url));
+const outputDirectory = path.resolve(process.env.MAKEFUN_OUTPUT_DIR ?? '/output');
+const sourceDirectory = path.resolve(here);
+const gameDirectory = path.join(sourceDirectory, 'game');
+const screenshotDirectory = path.join(sourceDirectory, 'screenshots');
 const caps = {
   text_max_bytes: 163840,
   screenshots: { max: 4, max_bytes: 262144 },
@@ -17,177 +36,256 @@ const caps = {
   game_max_bytes: 50331648,
   game_path_max_bytes: 1000,
 };
+const screenshotName = /^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$/;
+const pngMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const jpegMagic = Buffer.from([0xff, 0xd8, 0xff]);
+const guideMarkers = [
+  'export const harborGuideData',
+  'export class HarborGuide',
+  'data-guide-action',
+  'data-guide-tab',
+  'data-guide-entry',
+  'data-guide-content',
+  'HARBOR GUIDE',
+  'Press J',
+] as const;
 
 function fail(message: string): never {
-  console.error(`high-tide: ${message}`);
-  process.exit(1);
+  throw new Error(`[high-tide packager] ${message}`);
 }
 
-type Entry = { path: string; bytes: number };
+function bytesOf(value: string): number {
+  return Buffer.byteLength(value, 'utf8');
+}
 
-type ScreenshotSummary = {
-  files: string[];
-  bytes: number;
-};
+function sha256(filePath: string): string {
+  return createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+}
 
-type HarborGuideSummary = {
-  path: string;
-  bytes: number;
-  lines: number;
-  checks: string[];
-};
+function isInside(parent: string, child: string): boolean {
+  const relative = path.relative(parent, child);
+  return relative === '' || (!relative.startsWith('..' + path.sep) && !path.isAbsolute(relative));
+}
 
-type PackageManifest = {
-  schema: 'makefun/package-manifest/v1';
-  package: 'high-tide';
-  title: 'High Tide: Storm Shift';
-  entry: 'game/index.html';
-  summary: string;
-  game: {
-    entries: number;
-    bytes: number;
-    harbor_guide: HarborGuideSummary;
+function assertInside(parent: string, child: string, label: string): void {
+  if (!isInside(parent, child)) fail(`${label} escapes its parent directory`);
+}
+
+function relativePath(root: string, absolutePath: string): string {
+  return path.relative(root, absolutePath).split(path.sep).join('/');
+}
+
+function sortedEntries(directory: string): fs.Dirent[] {
+  return fs.readdirSync(directory, { withFileTypes: true }).sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0);
+}
+
+function snapshotTree(root: string, label: string, limits?: { maxEntries?: number; maxBytes?: number; maxPathBytes?: number }): TreeSnapshot {
+  const rootStat = fs.lstatSync(root);
+  if (!rootStat.isDirectory()) fail(`${label} must be a directory`);
+  const entries: TreeEntry[] = [];
+  const files: TreeEntry[] = [];
+  const directories: TreeEntry[] = [];
+  let totalBytes = 0;
+  const visit = (directory: string): void => {
+    for (const dirent of sortedEntries(directory)) {
+      const absolutePath = path.join(directory, dirent.name);
+      assertInside(root, absolutePath, `${label}/${dirent.name}`);
+      const rel = relativePath(root, absolutePath);
+      const relBytes = bytesOf(rel);
+      if (limits?.maxPathBytes !== undefined && relBytes > limits.maxPathBytes) {
+        fail(`${label}/${rel} is ${relBytes} bytes, over the ${limits.maxPathBytes} byte path cap`);
+      }
+      const stat = fs.lstatSync(absolutePath);
+      if (stat.isSymbolicLink() || (!stat.isFile() && !stat.isDirectory())) {
+        fail(`${label}/${rel} is not a plain file or directory`);
+      }
+      const entry: TreeEntry = {
+        relativePath: rel,
+        absolutePath,
+        kind: stat.isDirectory() ? 'directory' : 'file',
+        bytes: stat.isFile() ? stat.size : 0,
+      };
+      entries.push(entry);
+      if (limits?.maxEntries !== undefined && entries.length > limits.maxEntries) {
+        fail(`${label} has more than ${limits.maxEntries} files and directories`);
+      }
+      if (entry.kind === 'directory') {
+        directories.push(entry);
+        visit(absolutePath);
+      } else {
+        totalBytes += entry.bytes;
+        if (limits?.maxBytes !== undefined && totalBytes > limits.maxBytes) {
+          fail(`${label} files total ${totalBytes} bytes, over the ${limits.maxBytes} byte cap`);
+        }
+        files.push(entry);
+      }
+    }
   };
-  screenshots: ScreenshotSummary;
-  output: {
-    entries: string[];
-    dossier_bytes: number;
-    dossier_text_bytes: number;
-  };
-};
+  visit(root);
+  return { entries, files, directories, totalBytes };
+}
 
-function walk(dir: string): Entry[] {
-  const entries: Entry[] = [];
-  for (const name of readdirSync(dir)) {
-    const full = join(dir, name);
-    const st = lstatSync(full);
-    if (st.isSymbolicLink()) fail(`game/ contains a symbolic link: ${relative(here, full)}`);
-    if (st.isDirectory()) entries.push({ path: full, bytes: 0 }, ...walk(full));
-    else if (st.isFile()) entries.push({ path: full, bytes: st.size });
-    else fail(`game/ contains a special file: ${relative(here, full)}`);
+function regularFile(relative: string): string {
+  const absolutePath = path.join(sourceDirectory, relative);
+  assertInside(sourceDirectory, absolutePath, relative);
+  let stat: fs.Stats;
+  try {
+    stat = fs.lstatSync(absolutePath);
+  } catch {
+    fail(`${relative} is required but missing`);
   }
-  return entries;
+  if (!stat.isFile()) fail(`${relative} is required to be a regular file`);
+  return absolutePath;
 }
 
-function regularFile(path: string, label: string): number {
-  if (!existsSync(path)) fail(`${label} is missing`);
-  const st = lstatSync(path);
-  if (!st.isFile()) fail(`${label} is not a regular file`);
-  return st.size;
+function validateRequiredInputs(): { indexPath: string; guidePath: string; vendorPath: string; licensePath: string } {
+  const licensePath = regularFile('LICENSE');
+  const vendorPath = regularFile('vendor/makefun-game.ts');
+  const indexPath = regularFile('game/index.html');
+  const guidePath = regularFile('game/src/harborGuide.js');
+  const indexText = fs.readFileSync(indexPath, 'utf8');
+  if (!indexText.includes('type="module"')) fail('game/index.html must load an ES module');
+  if (!indexText.includes('./src/main.js')) fail('game/index.html must load ./src/main.js');
+  if (!indexText.includes('./src/polish.js')) fail('game/index.html must load ./src/polish.js');
+  const guideText = fs.readFileSync(guidePath, 'utf8');
+  const missing = guideMarkers.filter((marker) => !guideText.includes(marker));
+  if (missing.length > 0) fail(`Harbor Guide markers are missing: ${missing.join(', ')}`);
+  return { indexPath, guidePath, vendorPath, licensePath };
 }
 
-function validateHarborGuideAsset(): HarborGuideSummary {
-  const bytes = regularFile(harborGuide, 'game/src/harborGuide.js');
-  const source = readFileSync(harborGuide, 'utf8');
-  const checks = [
-    'export class HarborGuide',
-    "panel.className = 'harbor-guide hidden'",
-    'aria-live="polite"',
-    'data-guide-action',
-  ];
-  for (const check of checks) if (!source.includes(check)) fail(`Harbor Guide asset is missing its ${check} hook`);
+function validateGameTree(): TreeSnapshot {
+  return snapshotTree(gameDirectory, 'game', {
+    maxEntries: caps.game_max_files,
+    maxBytes: caps.game_max_bytes,
+    maxPathBytes: caps.game_path_max_bytes,
+  });
+}
+
+function beginsWith(buffer: Buffer, magic: Buffer): boolean {
+  return buffer.length >= magic.length && magic.every((byte, index) => buffer[index] === byte);
+}
+
+function validateScreenshots(): { tree: TreeSnapshot; images: ScreenshotRecord[] } {
+  const tree = snapshotTree(screenshotDirectory, 'screenshots');
+  const visibleFiles = tree.files.filter((entry) => !path.posix.basename(entry.relativePath).startsWith('.'));
+  if (visibleFiles.length < 3 || visibleFiles.length > caps.screenshots.max) {
+    fail(`screenshots must contain 3 or 4 visible image files, found ${visibleFiles.length}`);
+  }
+  if (tree.directories.length > 0) fail('screenshots may contain image files only');
+  const images: ScreenshotRecord[] = [];
+  for (const entry of visibleFiles) {
+    if (!screenshotName.test(entry.relativePath)) fail(`screenshots/${entry.relativePath} has an invalid name`);
+    if (entry.bytes > caps.screenshots.max_bytes) {
+      fail(`screenshots/${entry.relativePath} is ${entry.bytes} bytes, over the ${caps.screenshots.max_bytes} byte cap`);
+    }
+    const data = fs.readFileSync(entry.absolutePath);
+    const mediaType = beginsWith(data, pngMagic) ? 'image/png' : beginsWith(data, jpegMagic) ? 'image/jpeg' : null;
+    if (mediaType === null) fail(`screenshots/${entry.relativePath} is not a PNG or JPEG`);
+    images.push({ name: entry.relativePath, bytes: data.length, mediaType, sha256: sha256(entry.absolutePath) });
+  }
+  return { tree, images };
+}
+
+function removeOwnedOutput(output: string): void {
+  if (path.resolve(output) === sourceDirectory) fail('MAKEFUN_OUTPUT_DIR must not be the source directory');
+  fs.mkdirSync(output, { recursive: true });
+  const outputStat = fs.lstatSync(output);
+  if (!outputStat.isDirectory() || outputStat.isSymbolicLink()) fail('MAKEFUN_OUTPUT_DIR must be a plain directory');
+  for (const name of ['game', 'screenshots', 'dossier.json', 'package-manifest.json']) {
+    const target = path.join(output, name);
+    assertInside(output, target, `output/${name}`);
+    fs.rmSync(target, { recursive: true, force: true });
+  }
+}
+
+function copyEntry(source: string, destination: string): void {
+  assertInside(sourceDirectory, source, 'source copy');
+  assertInside(outputDirectory, destination, 'output copy');
+  fs.cpSync(source, destination, { recursive: true, force: true, errorOnExist: false });
+}
+
+function mapByPath(snapshot: TreeSnapshot): Map<string, TreeEntry> {
+  return new Map(snapshot.entries.map((entry) => [entry.relativePath, entry]));
+}
+
+function validateMirror(source: TreeSnapshot, destinationRoot: string, label: string): TreeSnapshot {
+  const destination = snapshotTree(destinationRoot, label);
+  const sourceMap = mapByPath(source);
+  const destinationMap = mapByPath(destination);
+  if (sourceMap.size !== destinationMap.size) fail(`${label} mirror entry count differs from source`);
+  for (const [rel, sourceEntry] of sourceMap) {
+    const destinationEntry = destinationMap.get(rel);
+    if (destinationEntry === undefined) fail(`${label}/${rel} is missing from output`);
+    if (sourceEntry.kind !== destinationEntry.kind) fail(`${label}/${rel} changed kind while copying`);
+    if (sourceEntry.kind === 'file') {
+      if (sourceEntry.bytes !== destinationEntry.bytes) fail(`${label}/${rel} changed size while copying`);
+      if (sha256(sourceEntry.absolutePath) !== sha256(destinationEntry.absolutePath)) {
+        fail(`${label}/${rel} changed bytes while copying`);
+      }
+    }
+  }
+  return destination;
+}
+
+function manifestFile(entry: TreeEntry): { path: string; bytes: number; sha256: string } {
+  return { path: entry.relativePath, bytes: entry.bytes, sha256: sha256(entry.absolutePath) };
+}
+
+function manifestTree(tree: TreeSnapshot): { entries: number; files: number; directories: number; bytes: number } {
   return {
-    path: relative(here, harborGuide).replaceAll('\\', '/'),
-    bytes,
-    lines: source === '' ? 0 : source.split('\n').length,
-    checks,
+    entries: tree.entries.length,
+    files: tree.files.length,
+    directories: tree.directories.length,
+    bytes: tree.totalBytes,
   };
 }
 
-function validateScreenshots(): ScreenshotSummary {
-  if (!existsSync(shots)) fail('screenshots/ is missing');
-  if (!lstatSync(shots).isDirectory()) fail('screenshots/ is not a directory');
-  const files = readdirSync(shots).filter((name) => !name.startsWith('.')).sort();
-  if (files.length < 3 || files.length > caps.screenshots.max) {
-    fail(`screenshots/ must hold 3 or 4 images, found ${files.length}`);
-  }
-  let bytes = 0;
-  for (const name of files) {
-    if (!/^[A-Za-z0-9._-]{1,128}$/.test(name)) fail(`bad screenshot name: ${name}`);
-    const size = regularFile(join(shots, name), `screenshot ${name}`);
-    if (!/\.(png|jpe?g)$/i.test(name)) fail(`screenshot is not PNG or JPEG: ${name}`);
-    if (size > caps.screenshots.max_bytes) fail(`screenshot over 256 KiB: ${name} (${size} bytes)`);
-    bytes += size;
-  }
-  return { files, bytes };
+function writeJson(filePath: string, value: unknown): void {
+  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 }
 
-function validateMirroredDirectory(source: string, target: string, label: string): void {
-  if (!existsSync(target) || !lstatSync(target).isDirectory()) fail(`output ${label}/ is missing`);
-  const sourceEntries = walk(source);
-  const targetEntries = walk(target);
-  const sourcePaths = new Set(sourceEntries.map((entry) => relative(source, entry.path).replaceAll('\\', '/')));
-  const targetPaths = new Set(targetEntries.map((entry) => relative(target, entry.path).replaceAll('\\', '/')));
-  if (sourcePaths.size !== targetPaths.size || [...sourcePaths].some((path) => !targetPaths.has(path))) {
-    fail(`output ${label}/ does not mirror its source tree`);
-  }
-  for (const entry of sourceEntries) {
-    if (entry.bytes === 0) continue;
-    const rel = relative(source, entry.path);
-    const copied = lstatSync(join(target, rel));
-    if (!copied.isFile() || copied.size !== entry.bytes) fail(`output ${label}/${rel} has the wrong size`);
-  }
+function main(): void {
+  const required = validateRequiredInputs();
+  const gameSource = validateGameTree();
+  const screenshotSource = validateScreenshots();
+  removeOwnedOutput(outputDirectory);
+  copyEntry(gameDirectory, path.join(outputDirectory, 'game'));
+  copyEntry(screenshotDirectory, path.join(outputDirectory, 'screenshots'));
+  const gameOutput = validateMirror(gameSource, path.join(outputDirectory, 'game'), 'output/game');
+  const screenshotOutput = validateMirror(screenshotSource.tree, path.join(outputDirectory, 'screenshots'), 'output/screenshots');
+  if (gameOutput.totalBytes !== gameSource.totalBytes) fail('output/game byte total does not mirror source');
+  if (screenshotOutput.totalBytes !== screenshotSource.tree.totalBytes) fail('output/screenshots byte total does not mirror source');
+  const dossier = buildDossier(outputDirectory, caps);
+  const dossierPath = path.join(outputDirectory, 'dossier.json');
+  fs.writeFileSync(dossierPath, dossier);
+  const dossierStat = fs.lstatSync(dossierPath);
+  if (!dossierStat.isFile() || dossierStat.size === 0) fail('buildDossier produced no dossier.json');
+  const manifest = {
+    schema: 'high-tide/package-manifest/v1',
+    source: {
+      required: ['LICENSE', 'vendor/makefun-game.ts', 'game/index.html', 'game/src/harborGuide.js'],
+      license: { path: 'LICENSE', bytes: fs.lstatSync(required.licensePath).size, sha256: sha256(required.licensePath) },
+      vendor: { path: 'vendor/makefun-game.ts', bytes: fs.lstatSync(required.vendorPath).size, sha256: sha256(required.vendorPath) },
+    },
+    caps,
+    validation: {
+      harborGuide: { path: 'game/src/harborGuide.js', markers: [...guideMarkers], valid: true },
+      screenshots: screenshotSource.images,
+      mirrors: { game: true, screenshots: true },
+    },
+    output: {
+      directory: path.basename(outputDirectory),
+      game: manifestTree(gameOutput),
+      screenshots: manifestTree(screenshotOutput),
+      dossier: { path: 'dossier.json', bytes: dossierStat.size, sha256: sha256(dossierPath) },
+    },
+  };
+  const manifestPath = path.join(outputDirectory, 'package-manifest.json');
+  writeJson(manifestPath, manifest);
+  const manifestStat = fs.lstatSync(manifestPath);
+  if (!manifestStat.isFile() || manifestStat.size === 0) fail('package-manifest.json was not written');
+  const mirroredGameIndex = path.join(outputDirectory, 'game', 'index.html');
+  if (!fs.existsSync(mirroredGameIndex)) fail('output mirror is missing game/index.html');
 }
 
-function validateOutputContents(dossier: Uint8Array, manifest: PackageManifest): void {
-  validateMirroredDirectory(game, join(out, 'game'), 'game');
-  validateMirroredDirectory(shots, join(out, 'screenshots'), 'screenshots');
-  const dossierPath = join(out, 'dossier.json');
-  const manifestPath = join(out, manifestName);
-  const dossierStat = lstatSync(dossierPath);
-  const manifestStat = lstatSync(manifestPath);
-  if (!dossierStat.isFile() || dossierStat.size !== dossier.byteLength) fail('output dossier.json does not match the generated dossier');
-  if (!manifestStat.isFile()) fail(`output ${manifestName} is not a regular file`);
-  const parsed = JSON.parse(readFileSync(dossierPath, 'utf8')) as { schema?: unknown; text?: unknown };
-  if (parsed.schema !== 'makefun/dossier/v1' || typeof parsed.text !== 'string') fail('output dossier.json has an invalid dossier shape');
-  const manifestOnDisk = JSON.parse(readFileSync(manifestPath, 'utf8')) as PackageManifest;
-  if (manifestOnDisk.schema !== manifest.schema || manifestOnDisk.output.dossier_bytes !== dossier.byteLength) {
-    fail(`output ${manifestName} does not match the package summary`);
-  }
-}
-
-for (const p of ['LICENSE', 'vendor/makefun-game.ts', 'game/', 'game/index.html']) if (!existsSync(join(here, p))) fail(`${p} is missing`);
-const index = join(game, 'index.html');
-const indexStat = statSync(index);
-if (!indexStat.isFile()) fail('game/index.html is not a regular file');
-if (indexStat.size > 1024 * 1024) fail('game/index.html exceeds 1 MiB');
-const harborGuideSummary = validateHarborGuideAsset();
-
-const tree = walk(game);
-if (tree.length > caps.game_max_files) fail(`game/ has ${tree.length} entries, over the ${caps.game_max_files} cap`);
-const gameBytes = tree.reduce((n, e) => n + e.bytes, 0);
-if (gameBytes > caps.game_max_bytes) fail(`game/ is ${gameBytes} bytes, over the ${caps.game_max_bytes} cap`);
-for (const e of tree) {
-  const rel = relative(game, e.path);
-  if (Buffer.byteLength(rel.replaceAll('\\', '/'), 'utf8') > caps.game_path_max_bytes) fail(`game path over ${caps.game_path_max_bytes} bytes: ${rel}`);
-}
-
-const screenshotSummary = validateScreenshots();
-
-for (const p of ['game', 'screenshots', 'dossier.json', manifestName]) rmSync(join(out, p), { recursive: true, force: true });
-mkdirSync(out, { recursive: true });
-cpSync(game, join(out, 'game'), { recursive: true });
-cpSync(shots, join(out, 'screenshots'), { recursive: true });
-const dossier = buildDossier(out, caps);
-writeFileSync(join(out, 'dossier.json'), dossier);
-const textBytes = Buffer.byteLength(JSON.parse(Buffer.from(dossier).toString('utf8')).text, 'utf8');
-const manifest: PackageManifest = {
-  schema: 'makefun/package-manifest/v1',
-  package: 'high-tide',
-  title: 'High Tide: Storm Shift',
-  entry: 'game/index.html',
-  summary: 'Offline coastal crime game with a field-ready Harbor Guide.',
-  game: { entries: tree.length, bytes: gameBytes, harbor_guide: harborGuideSummary },
-  screenshots: screenshotSummary,
-  output: {
-    entries: ['game/', 'screenshots/', 'dossier.json', manifestName],
-    dossier_bytes: dossier.byteLength,
-    dossier_text_bytes: textBytes,
-  },
-};
-writeFileSync(join(out, manifestName), `${JSON.stringify(manifest, null, 2)}\n`);
-validateOutputContents(dossier, manifest);
-
-console.log(`high-tide: packaged ${tree.length} game entries (${gameBytes} bytes), ${screenshotSummary.files.length} screenshots (${screenshotSummary.bytes} bytes)`);
-console.log(`high-tide: dossier text ${textBytes}/${caps.text_max_bytes} bytes, file ${dossier.byteLength} bytes -> ${join(out, 'dossier.json')}`);
-console.log(`high-tide: package manifest -> ${join(out, manifestName)}`);
+main();
