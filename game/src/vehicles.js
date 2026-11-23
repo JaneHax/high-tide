@@ -84,3 +84,5 @@ const ahead = vert ? (playerCar.pos.z - car.pos.z) * lane.dir : (playerCar.pos.x
 const nx = vert ? car.pos.x : car.pos.x + lane.dir * car.speed * dt, nz = vert ? car.pos.z + lane.dir * car.speed * dt : car.pos.z; if (vert) { if ((lane.dir > 0 && nz > lane.to) || (lane.dir < 0 && nz < lane.to)) { car.pos.z = lane.from; car.pos.x = lane.lane; } else car.pos.z = nz; } else { if ((lane.dir > 0 && nx > lane.to) || (lane.dir < 0 && nx < lane.to)) { car.pos.x = lane.from; car.pos.z = lane.lane; } else car.pos.x = nx; } if (lane.bridge && !this.world.bridge.passable) { if (lane.dir > 0 && car.pos.z > -44 && car.pos.z < -26) car.pos.z = -44; if (lane.dir < 0 && car.pos.z < 44 && car.pos.z > 26) car.pos.z = 44; } car.updateVisual(dt); } for (const car of this.parked) { if (car === playerCar) continue; car.updateVisual(dt); } } }
 // provenance: witnessed in the high-tide session
 // high-tide round 16 authorship provenance
+
+// Provenance: Round 17 final attempt, authored in this session.

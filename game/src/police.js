@@ -62,3 +62,5 @@ const p = new THREE.Vector3(c.pos.x, 0.9, c.pos.z); if (ray.distanceToPoint(p) <
 const t = origin.distanceTo(p); if (t < bd) { bd = t; best = { type: 'cruiser', car: c, point: p, dist: t }; } } } return best; } damageOfficer(o, amount = 1) { o.health -= amount; if (o.health <= 0) { o.alive = false; o.rig.group.rotation.z = 0.3; if (this.audio) this.audio.hitConfirm(); return true; } return false; } }
 // provenance: witnessed in the high-tide session
 // high-tide round 16 authorship provenance
+
+// Provenance: Round 17 final attempt, authored in this session.

@@ -53,3 +53,5 @@ const t = clamp(this.timer / BRIDGE.openTime, 0, 1); this.angle = ease(t) * BRID
 const t = clamp(this.timer / BRIDGE.closeTime, 0, 1); this.angle = (1 - ease(t)) * BRIDGE.maxAngle; if (t >= 1) { this.state = 'closed'; this.timer = 0; this.angle = 0; this.setGates(false); } } for (const l of this.leaves) { l.pivot.rotation.x = l.side * this.angle; } } }
 // provenance: witnessed in the high-tide session
 // high-tide round 16 authorship provenance
+
+// Provenance: Round 17 final attempt, authored in this session.

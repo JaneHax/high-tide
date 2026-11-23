@@ -61,3 +61,5 @@ let best = null, bd = maxDist; for (const p of this.peds) { if (!p.alive) contin
 const d = Math.hypot(p.x - x, p.z - z); if (d < bd) { bd = d; best = p; } } return best; } }
 // provenance: witnessed in the high-tide session
 // high-tide round 16 authorship provenance
+
+// Provenance: Round 17 final attempt, authored in this session.

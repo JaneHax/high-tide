@@ -159,3 +159,5 @@ const loop = () => { requestAnimationFrame(loop);
 const dt = Math.min(this.clock.getDelta(), 0.05); this.update(dt); }; loop(); } }
 // provenance: witnessed in the high-tide session
 // high-tide round 16 authorship provenance
+
+// Provenance: Round 17 final attempt, authored in this session.

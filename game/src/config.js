@@ -95,3 +95,5 @@ job:0xc8a4ff,
 };
 // provenance: witnessed in the high-tide session
 // high-tide round 16 authorship provenance
+
+// Provenance: Round 17 final attempt, authored in this session.

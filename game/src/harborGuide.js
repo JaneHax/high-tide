@@ -1,4 +1,4 @@
-import { harborAtlas } from './harborAtlas.js';
+import { harborAtlasFinal } from './harborAtlasFinal.js';
 
 /*
  * Harbor Guide is an authored field manual for High Tide: Storm Shift.
@@ -448,7 +448,7 @@ export class HarborGuide {
   constructor(game) {
     this.game = game || {};
     this.data = harborGuideData;
-    this.atlas = harborAtlas;
+    this.atlas = harborAtlasFinal;
     this.districts = this.data.districts;
     this.vehicles = this.data.vehicles;
     this.weapons = this.data.weapons;
@@ -920,3 +920,5 @@ export class HarborGuide {
 
 // provenance: witnessed in the high-tide session
 // high-tide round 16 authorship provenance
+
+// Provenance: Round 17 final attempt, authored in this session.

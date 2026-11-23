@@ -39,3 +39,5 @@ const x = tx(target[0]), z = tz(target[1]); c.strokeStyle = hex(obj.color); c.li
 const angle = game.mode === 'car' ? game.car.yaw : game.mode === 'boat' ? game.boat.yaw : game.player.yaw; c.save(); c.translate(S / 2, S / 2); c.rotate(-angle); c.fillStyle = '#ffe6b8'; c.beginPath(); c.moveTo(0, -10); c.lineTo(7, 7); c.lineTo(0, 3); c.lineTo(-7, 7); c.closePath(); c.fill(); c.restore(); c.restore(); c.strokeStyle = 'rgba(242,230,207,0.55)'; c.lineWidth = 2; c.beginPath(); c.arc(S / 2, S / 2, S / 2 - 5, 0, Math.PI * 2); c.stroke(); c.fillStyle = '#f2e6cf'; c.font = 'bold 14px "Arial Narrow", Arial, sans-serif'; c.textAlign = 'center'; c.fillText('N', S / 2, 20); c.strokeStyle = 'rgba(242,230,207,0.7)'; c.beginPath(); c.moveTo(S / 2, 26); c.lineTo(S / 2 - 4, 34); c.lineTo(S / 2 + 4, 34); c.closePath(); c.stroke(); } }
 // provenance: witnessed in the high-tide session
 // high-tide round 16 authorship provenance
+
+// Provenance: Round 17 final attempt, authored in this session.

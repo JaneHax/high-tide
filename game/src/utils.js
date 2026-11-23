@@ -51,3 +51,5 @@ return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart
 }
 // provenance: witnessed in the high-tide session
 // high-tide round 16 authorship provenance
+
+// Provenance: Round 17 final attempt, authored in this session.

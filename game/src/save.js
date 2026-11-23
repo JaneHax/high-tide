@@ -6,3 +6,5 @@ export function hasSave() { return !!readSave(); }
 export function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch {} }
 // provenance: witnessed in the high-tide session
 // high-tide round 16 authorship provenance
+
+// Provenance: Round 17 final attempt, authored in this session.

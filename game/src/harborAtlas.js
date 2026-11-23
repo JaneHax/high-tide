@@ -955,3 +955,5 @@ export const atlasSummary = () => ({
 });
 
 export default harborAtlas;
+
+// Provenance: Round 17 final attempt, authored in this session.

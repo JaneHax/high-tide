@@ -215,3 +215,5 @@ const x = (Math.random() - 0.5) * 160, z = (Math.random() - 0.5) * 160, y = 55 +
 const t = this.sunLight.target; t.position.set(camera.position.x, 0, camera.position.z); this.sunLight.position.set(camera.position.x - 80, 120, camera.position.z - 90); } } }
 // provenance: witnessed in the high-tide session
 // high-tide round 16 authorship provenance
+
+// Provenance: Round 17 final attempt, authored in this session.

@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { buildDossier } from './vendor/makefun-game.ts';
 
 // Authored during round 16 to keep the harbor packager boundary explicit.
+// Authored explicitly for the round 17 final-attempt packager handoff.
 
 type EntryKind = 'file' | 'directory';
 type TreeEntry = {
@@ -293,3 +294,5 @@ function main(): void {
 main();
 // provenance: witnessed in the high-tide session
 // high-tide round 16 authorship provenance
+
+// Provenance: Round 17 final attempt, authored in this session.
